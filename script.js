@@ -9,7 +9,6 @@ let frameY = 0;
 const MIN_W = 100;
 const MIN_H = 100;
 
-// Biến lưu tỷ lệ khi bắt đầu kéo khung
 let dragStartRatio = 0; 
 let dragAnchorY = 0;
 
@@ -26,7 +25,6 @@ const historyStack = [];
 const redoStack = []; 
 const MAX_HISTORY = 50;
 
-// --- UI HELPERS ---
 function showToast(msg) {
     const toast = document.getElementById('toast');
     const toastMsg = document.getElementById('toastMsg');
@@ -35,7 +33,6 @@ function showToast(msg) {
     setTimeout(() => toast.classList.add('opacity-0'), 3000);
 }
 
-// --- MODALS & EVENTS ---
 const saveModalEl = document.getElementById('saveModal');
 const saveFileNameInputEl = document.getElementById('saveFileNameInput');
 const resetModalEl = document.getElementById('resetModal');
@@ -52,11 +49,8 @@ function openResetModal() { resetModalEl.classList.remove('hidden'); }
 function closeResetModal() { resetModalEl.classList.add('hidden'); }
 
 window.toggleHelpModal = function() {
-    if (helpModalEl.classList.contains('hidden')) {
-        helpModalEl.classList.remove('hidden');
-    } else {
-        helpModalEl.classList.add('hidden');
-    }
+    if (helpModalEl.classList.contains('hidden')) helpModalEl.classList.remove('hidden');
+    else helpModalEl.classList.add('hidden');
 }
 helpModalEl.addEventListener('click', (e) => { if (e.target === helpModalEl) toggleHelpModal(); });
 if (!localStorage.getItem('seen_help')) { setTimeout(() => { toggleHelpModal(); localStorage.setItem('seen_help', 'true'); }, 1000); }
@@ -168,10 +162,7 @@ class Editor {
         this.crop = { t: 0, b: 0, l: 0, r: 0 }; this.state = { x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2, scale: 1, angle: 0 }; this.stickers = []; 
         this.drag = { isDragging: false, lastX: 0, lastY: 0 };
         this.interaction = { active: false, type: 'none', startDist: 0, startScale: 1, anchorCanvas: { x: 0, y: 0 }, stickerIndex: -1 };
-        
-        // --- PINCH ZOOM VARIABLES ---
         this.pinch = { active: false, startDist: 0, startScale: 1 };
-
         this.initEvents(uploadId);
     }
 
@@ -230,7 +221,7 @@ class Editor {
     }
 
     checkHit(x, y) {
-        const margin = 30; // Tăng vùng bấm cho điện thoại
+        const margin = 30; 
         if (this.isLoaded && this.interaction.stickerIndex !== -1 && this.interaction.stickerIndex < this.stickers.length) {
             const s = this.stickers[this.interaction.stickerIndex];
             const half = 100 * s.scale / 2;
@@ -307,7 +298,6 @@ class Editor {
 
         const start = (e) => {
             this.setActive(); 
-            // --- LOGIC PINCH TO ZOOM START ---
             if (e.touches && e.touches.length === 2) {
                 e.preventDefault();
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -317,8 +307,6 @@ class Editor {
                 this.pinch.startScale = this.state.scale;
                 return;
             }
-            // --- END PINCH START ---
-
             if (e.cancelable && !this.isLoaded) return;
             const c = this.getCanvasCoords(e); const hit = this.checkHit(c.x, c.y);
             this.interaction.active = true; this.interaction.type = hit.type;
@@ -350,13 +338,11 @@ class Editor {
         };
 
         const move = (e) => {
-            // --- LOGIC PINCH TO ZOOM MOVE ---
             if (this.pinch.active && e.touches && e.touches.length === 2) {
                 e.preventDefault();
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                
                 if (this.pinch.startDist > 0) {
                     let newScale = (dist / this.pinch.startDist) * this.pinch.startScale;
                     if (newScale < 0.1) newScale = 0.1;
@@ -367,8 +353,6 @@ class Editor {
                 }
                 return;
             }
-            // --- END PINCH MOVE ---
-
             const c = this.getCanvasCoords(e);
             if (!this.interaction.active) return;
             if (e.cancelable) e.preventDefault();
@@ -379,58 +363,24 @@ class Editor {
             else if (t === 'crop-handle') { const lp = this.getInverseTransformedPoint(c.x, c.y); const w=this.img.width, h=this.img.height, min=50; if(this.interaction.cropSide==='top') { let v=lp.y+h/2; if(v<0)v=0; if(v>h-this.crop.b-min)v=h-this.crop.b-min; this.crop.t=v; } else if(this.interaction.cropSide==='bottom') { let v=h/2-lp.y; if(v<0)v=0; if(v>h-this.crop.t-min)v=h-this.crop.t-min; this.crop.b=v; } else if(this.interaction.cropSide==='left') { let v=lp.x+w/2; if(v<0)v=0; if(v>w-this.crop.r-min)v=w-this.crop.r-min; this.crop.l=v; } else if(this.interaction.cropSide==='right') { let v=w/2-lp.x; if(v<0)v=0; if(v>w-this.crop.l-min)v=w-this.crop.l-min; this.crop.r=v; } this.draw(); }
             else if (t === 'image-corner') { const dist = Math.sqrt((c.x - this.interaction.anchorCanvas.x)**2 + (c.y - this.interaction.anchorCanvas.y)**2); if (this.interaction.startDist > 0) { let s = (dist / this.interaction.startDist) * this.interaction.startScale; if(s<0.1)s=0.1; if(s>4)s=4; this.state.scale=s; } const vc = this.getVisibleCorners(); const anchor = vc[this.interaction.anchorIdx]; const rad = this.state.angle * Math.PI / 180; const cos = Math.cos(rad); const sin = Math.sin(rad); const w = this.img.width, h = this.img.height; const l = -w/2 + this.crop.l, r = w/2 - this.crop.r, t = -h/2 + this.crop.t, b = h/2 - this.crop.b; const cl = [{x:l,y:t},{x:r,y:t},{x:r,y:b},{x:l,y:b}]; const myLocal = cl[this.interaction.anchorIdx]; const rx = myLocal.x*this.state.scale*cos - myLocal.y*this.state.scale*sin; const ry = myLocal.x*this.state.scale*sin + myLocal.y*this.state.scale*cos; this.state.x = this.interaction.anchorCanvas.x - rx; this.state.y = this.interaction.anchorCanvas.y - ry; this.updateControls(); this.draw(); }
             else if (t === 'pan' && this.isLoaded) { const cx = e.touches?e.touches[0].clientX:e.clientX; const cy = e.touches?e.touches[0].clientY:e.clientY; const rect = this.canvas.getBoundingClientRect(); const sr = CANVAS_WIDTH/rect.width; this.state.x += (cx - this.drag.lastX) * sr; this.state.y += (cy - this.drag.lastY) * sr; this.drag.lastX = cx; this.drag.lastY = cy; this.draw(); }
-            
             else if (t.startsWith('frame') && !isFrameLocked) {
-                if (t === 'frame-edge-top') {
-                    let dy = c.y - this.drag.lastY; let newY = frameY + dy;
-                    if (newY < 0) newY = 0; if (newY + frameHeight > CANVAS_HEIGHT) newY = CANVAS_HEIGHT - frameHeight;
-                    frameY = newY;
-                }
-                else if (t === 'frame-edge-bot') {
-                    let newH = c.y - frameY; if (newH < MIN_H) newH = MIN_H;
-                    if (frameY + newH > CANVAS_HEIGHT) newH = CANVAS_HEIGHT - frameY;
-                    frameHeight = newH;
-                }
+                if (t === 'frame-edge-top') { let dy = c.y - this.drag.lastY; let newY = frameY + dy; if (newY < 0) newY = 0; if (newY + frameHeight > CANVAS_HEIGHT) newY = CANVAS_HEIGHT - frameHeight; frameY = newY; }
+                else if (t === 'frame-edge-bot') { let newH = c.y - frameY; if (newH < MIN_H) newH = MIN_H; if (frameY + newH > CANVAS_HEIGHT) newH = CANVAS_HEIGHT - frameY; frameHeight = newH; }
                 else if (t.includes('corner')) {
                     let newW = frameWidth;
                     if (this.side === 'left') newW = CANVAS_WIDTH - c.x; else newW = c.x;
                     if (newW > CANVAS_WIDTH) newW = CANVAS_WIDTH; if (newW < MIN_W) newW = MIN_W;
-
                     let newH = newW / dragStartRatio;
                     if (newH > CANVAS_HEIGHT) { newH = CANVAS_HEIGHT; newW = newH * dragStartRatio; }
-
                     frameWidth = newW; frameHeight = newH;
-
-                    if (t.includes('tl') || t.includes('tr')) {
-                        frameY = dragAnchorY - newH;
-                        if (frameY < 0) { frameY = 0; frameHeight = dragAnchorY; frameWidth = frameHeight * dragStartRatio; }
-                    } else {
-                        frameY = dragAnchorY;
-                    }
+                    if (t.includes('tl') || t.includes('tr')) { frameY = dragAnchorY - newH; if (frameY < 0) { frameY = 0; frameHeight = dragAnchorY; frameWidth = frameHeight * dragStartRatio; } } else { frameY = dragAnchorY; }
                 }
-                else if (t === 'frame-edge-side') {
-                    let newW = frameWidth;
-                    if (this.side === 'left') {
-                        newW = CANVAS_WIDTH - c.x;
-                    } else {
-                        newW = c.x;
-                    }
-                    if (newW < MIN_W) newW = MIN_W;
-                    if (newW > CANVAS_WIDTH) newW = CANVAS_WIDTH;
-                    frameWidth = newW;
-                }
+                else if (t === 'frame-edge-side') { let newW = frameWidth; if (this.side === 'left') { newW = CANVAS_WIDTH - c.x; } else { newW = c.x; } if (newW < MIN_W) newW = MIN_W; if (newW > CANVAS_WIDTH) newW = CANVAS_WIDTH; frameWidth = newW; }
                 this.drag.lastX = c.x; this.drag.lastY = c.y;
                 edit1.draw(); edit2.draw();
             }
         };
-        const end = () => { 
-            this.pinch.active = false; // Reset Pinch state
-            if(this.interaction.active) saveHistory(); 
-            this.interaction.active = false; 
-            this.interaction.type = 'none'; 
-            this.canvas.style.cursor = 'grab'; 
-        };
-        
+        const end = () => { this.pinch.active = false; if(this.interaction.active) saveHistory(); this.interaction.active = false; this.interaction.type = 'none'; this.canvas.style.cursor = 'grab'; };
         this.canvas.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
         this.canvas.addEventListener('touchstart', start, {passive:false}); window.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
     }
@@ -451,7 +401,6 @@ class Editor {
 
     draw() {
         this.ctx.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
-        
         if(this.isLoaded) {
             this.ctx.save(); this.ctx.translate(this.state.x, this.state.y); this.ctx.rotate(this.state.angle*Math.PI/180); this.ctx.scale(this.state.scale, this.state.scale);
             const w=this.img.width, h=this.img.height, c=this.crop;
@@ -460,132 +409,70 @@ class Editor {
             this.ctx.restore();
             if(!isExporting) { this.drawImageHandles(); this.drawCropHandles(); }
         }
-        
-        // --- GHOST MODE ĐÃ SỬA LỖI ---
         if (isGhostMode && this.side === 'right' && edit1.isLoaded) {
-            this.ctx.save();
-            this.ctx.globalAlpha = 0.4;
-            const sourceX = CANVAS_WIDTH - frameWidth;
-            const sourceY = frameY;
-            const destX = 0;
-            const destY = frameY;
+            this.ctx.save(); this.ctx.globalAlpha = 0.4;
+            const sourceX = CANVAS_WIDTH - frameWidth; const sourceY = frameY;
+            const destX = 0; const destY = frameY;
             this.ctx.drawImage(edit1.canvas, sourceX, sourceY, frameWidth, frameHeight, destX, destY, frameWidth, frameHeight);
             this.ctx.restore();
         }
-        
-        // --- VẼ LƯỚI & TRỤC ---
         if(showGrid && (!isExporting)) this.drawGrid();
         if(!isExporting) { this.drawFrameMask(); this.drawStickerControls(); if(showCenterAxis) this.drawCenterAxis(); }
         else if(includeCenterAxisInExport) this.drawCenterAxis();
     }
 
-    // --- CÁC HÀM PHỤ TRỢ ---
-    drawStickerControls() { if(this.interaction.stickerIndex===-1)return; const s=this.stickers[this.interaction.stickerIndex]; const h=100*s.scale/2; const pts=[{x:s.x-h,y:s.y-h},{x:s.x+h,y:s.y-h},{x:s.x+h,y:s.y+h},{x:s.x-h,y:s.y+h}].map(p=>this.transformPoint(p.x,p.y,this.state.scale,this.state.angle,this.state.x,this.state.y)); this.ctx.save();this.ctx.strokeStyle="#fbbf24";this.ctx.lineWidth=2;this.ctx.setLineDash([5,5]);this.ctx.beginPath();this.ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)this.ctx.lineTo(pts[i].x,pts[i].y);this.ctx.closePath();this.ctx.stroke();this.ctx.setLineDash([]);this.ctx.fillStyle="#fff";pts.forEach(p=>{this.ctx.beginPath();this.ctx.arc(p.x,p.y,3,0,Math.PI*2);this.ctx.fill();this.ctx.stroke();});this.ctx.restore(); }
-    
-    drawCenterAxis() { 
-        let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
-        const centerX = activeX + frameWidth / 2;
-        this.ctx.save();
-        this.ctx.strokeStyle = "#ef4444"; 
-        this.ctx.lineWidth = 1.5;
-        this.ctx.setLineDash([10, 5]); 
-        this.ctx.beginPath();
-        this.ctx.moveTo(centerX, frameY);
-        this.ctx.lineTo(centerX, frameY + frameHeight);
-        this.ctx.stroke();
-        this.ctx.restore(); 
-    }
-    
-    drawImageHandles() { const c=this.getVisibleCorners();this.ctx.save();this.ctx.fillStyle="#3b82f6";this.ctx.strokeStyle="white";this.ctx.lineWidth=2;c.forEach(p=>{this.ctx.beginPath();this.ctx.arc(p.x,p.y,6,0,Math.PI*2);this.ctx.fill();this.ctx.stroke();});this.ctx.restore(); }
-    drawCropHandles() { const h=this.getCropHandles();this.ctx.save();this.ctx.fillStyle="#ef4444";this.ctx.strokeStyle="white";this.ctx.lineWidth=2;for(let k in h){const p=h[k];this.ctx.beginPath();this.ctx.rect(p.x-4,p.y-4,8,8);this.ctx.fill();this.ctx.stroke();}this.ctx.restore(); }
-    
-    // --- HÀM VẼ LƯỚI TÙY CHỈNH (CẬP NHẬT) ---
+    // --- HÀM VẼ LƯỚI CHI TIẾT (Đã khôi phục) ---
     drawGrid() { 
         let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
-        this.ctx.save();
+        this.ctx.save(); this.ctx.beginPath();
+        this.ctx.rect(activeX, frameY, frameWidth, frameHeight); this.ctx.clip(); this.ctx.translate(activeX, frameY);
+
+        const soOChia = 20; // SỐ Ô CHIA NHỎ (Chỉnh ở đây)
+
+        // 1. Lưới phụ (Mờ)
         this.ctx.beginPath();
-        // Giới hạn vùng vẽ trong khung
-        this.ctx.rect(activeX, frameY, frameWidth, frameHeight);
-        this.ctx.clip();
-        this.ctx.translate(activeX, frameY);
-
-        // ===========================================================
-        // 👇 THAY ĐỔI SỐ Ô MUỐN CHIA NHỎ Ở ĐÂY (VD: 10, 20, 50...)
-        const soOChia = 30; 
-        // ===========================================================
-
-        // 1. VẼ CÁC ĐƯỜNG LƯỚI PHỤ (Mỏng & Mờ)
-        this.ctx.beginPath();
-        // Màu sắc tự động theo chế độ Sáng/Tối
-        this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.2)";
-        this.ctx.lineWidth = 0.5; // Nét rất mảnh
-
-        const subStepX = frameWidth / soOChia;
-        const subStepY = frameHeight / soOChia;
-
+        this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.15)";
+        this.ctx.lineWidth = 0.5;
+        const subStepX = frameWidth / soOChia; const subStepY = frameHeight / soOChia;
         for (let i = 1; i < soOChia; i++) {
-            // Kẻ dọc phụ
-            this.ctx.moveTo(subStepX * i, 0);
-            this.ctx.lineTo(subStepX * i, frameHeight);
-            
-            // Kẻ ngang phụ
-            this.ctx.moveTo(0, subStepY * i);
-            this.ctx.lineTo(frameWidth, subStepY * i);
+            this.ctx.moveTo(subStepX * i, 0); this.ctx.lineTo(subStepX * i, frameHeight);
+            this.ctx.moveTo(0, subStepY * i); this.ctx.lineTo(frameWidth, subStepY * i);
         }
         this.ctx.stroke();
 
-        // 2. VẼ ĐƯỜNG LƯỚI CHÍNH 3x3 (Rule of Thirds - Đậm & Rõ hơn)
+        // 2. Lưới chính (Đậm)
         this.ctx.beginPath();
         this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)";
-        this.ctx.lineWidth = 1.5; // Nét đậm
-
-        const stepX = frameWidth / 3;
-        const stepY = frameHeight / 3;
-
-        // Kẻ dọc chính
+        this.ctx.lineWidth = 1.5;
+        const stepX = frameWidth / 3; const stepY = frameHeight / 3;
         this.ctx.moveTo(stepX, 0); this.ctx.lineTo(stepX, frameHeight);
         this.ctx.moveTo(stepX * 2, 0); this.ctx.lineTo(stepX * 2, frameHeight);
-        // Kẻ ngang chính
         this.ctx.moveTo(0, stepY); this.ctx.lineTo(frameWidth, stepY);
         this.ctx.moveTo(0, stepY * 2); this.ctx.lineTo(frameWidth, stepY * 2);
-        
         this.ctx.stroke();
         this.ctx.restore(); 
     }
 
+    drawStickerControls() { if(this.interaction.stickerIndex===-1)return; const s=this.stickers[this.interaction.stickerIndex]; const h=100*s.scale/2; const pts=[{x:s.x-h,y:s.y-h},{x:s.x+h,y:s.y-h},{x:s.x+h,y:s.y+h},{x:s.x-h,y:s.y+h}].map(p=>this.transformPoint(p.x,p.y,this.state.scale,this.state.angle,this.state.x,this.state.y)); this.ctx.save();this.ctx.strokeStyle="#fbbf24";this.ctx.lineWidth=2;this.ctx.setLineDash([5,5]);this.ctx.beginPath();this.ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)this.ctx.lineTo(pts[i].x,pts[i].y);this.ctx.closePath();this.ctx.stroke();this.ctx.setLineDash([]);this.ctx.fillStyle="#fff";pts.forEach(p=>{this.ctx.beginPath();this.ctx.arc(p.x,p.y,3,0,Math.PI*2);this.ctx.fill();this.ctx.stroke();});this.ctx.restore(); }
+    drawCenterAxis() { let ax=(this.side==='left')?(CANVAS_WIDTH-frameWidth):0;const cx=ax+frameWidth/2;this.ctx.save();this.ctx.strokeStyle="#ef4444";this.ctx.lineWidth=1.5;this.ctx.setLineDash([10,5]);this.ctx.beginPath();this.ctx.moveTo(cx,frameY);this.ctx.lineTo(cx,frameY+frameHeight);this.ctx.stroke();this.ctx.restore(); }
+    drawImageHandles() { const c=this.getVisibleCorners();this.ctx.save();this.ctx.fillStyle="#3b82f6";this.ctx.strokeStyle="white";this.ctx.lineWidth=2;c.forEach(p=>{this.ctx.beginPath();this.ctx.arc(p.x,p.y,6,0,Math.PI*2);this.ctx.fill();this.ctx.stroke();});this.ctx.restore(); }
+    drawCropHandles() { const h=this.getCropHandles();this.ctx.save();this.ctx.fillStyle="#ef4444";this.ctx.strokeStyle="white";this.ctx.lineWidth=2;for(let k in h){const p=h[k];this.ctx.beginPath();this.ctx.rect(p.x-4,p.y-4,8,8);this.ctx.fill();this.ctx.stroke();}this.ctx.restore(); }
     drawFrameMask() {
-        this.ctx.save();
-        this.ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        this.ctx.save(); this.ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
         const topY = frameY; const bottomY = frameY + frameHeight;
         let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
-
         if (topY > 0) this.ctx.fillRect(0, 0, CANVAS_WIDTH, topY);
         if (bottomY < CANVAS_HEIGHT) this.ctx.fillRect(0, bottomY, CANVAS_WIDTH, CANVAS_HEIGHT - bottomY);
-        if (this.side === 'left') { if (activeX > 0) this.ctx.fillRect(0, topY, activeX, frameHeight); }
-        else { const rmx = activeX + frameWidth; if (rmx < CANVAS_WIDTH) this.ctx.fillRect(rmx, topY, CANVAS_WIDTH - rmx, frameHeight); }
-
+        if (this.side === 'left') { if (activeX > 0) this.ctx.fillRect(0, topY, activeX, frameHeight); } else { const rmx = activeX + frameWidth; if (rmx < CANVAS_WIDTH) this.ctx.fillRect(rmx, topY, CANVAS_WIDTH - rmx, frameHeight); }
         const INSET = 5; 
-        if (isFrameLocked) {
-            this.ctx.strokeStyle = "#f43f5e"; this.ctx.lineWidth = 2; this.ctx.setLineDash([5, 5]);
-            this.ctx.strokeRect(activeX + INSET, topY + INSET, frameWidth - INSET*2, frameHeight - INSET*2);
-        } else {
-            this.ctx.strokeStyle = "#3b82f6"; this.ctx.lineWidth = 3; this.ctx.setLineDash([5, 5]);
-            this.ctx.strokeRect(activeX + INSET, topY + INSET, frameWidth - INSET*2, frameHeight - INSET*2);
+        if (isFrameLocked) { this.ctx.strokeStyle = "#f43f5e"; this.ctx.lineWidth = 2; this.ctx.setLineDash([5, 5]); this.ctx.strokeRect(activeX + INSET, topY + INSET, frameWidth - INSET*2, frameHeight - INSET*2); } 
+        else {
+            this.ctx.strokeStyle = "#3b82f6"; this.ctx.lineWidth = 3; this.ctx.setLineDash([5, 5]); this.ctx.strokeRect(activeX + INSET, topY + INSET, frameWidth - INSET*2, frameHeight - INSET*2);
             this.ctx.fillStyle = "#3b82f6"; this.ctx.setLineDash([]); const hs = 8;
-            
-            this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth/2, topY + INSET, hs, 0, Math.PI*2); this.ctx.fill(); 
-            this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth/2, bottomY - INSET, hs, 0, Math.PI*2); this.ctx.fill(); 
-            
+            this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth/2, topY + INSET, hs, 0, Math.PI*2); this.ctx.fill(); this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth/2, bottomY - INSET, hs, 0, Math.PI*2); this.ctx.fill(); 
             const visualCenterY = topY + frameHeight/2;
-            if (this.side === 'left') {
-                this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth - INSET, topY + INSET, hs, 0, Math.PI*2); this.ctx.fill();
-                this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth - INSET, bottomY - INSET, hs, 0, Math.PI*2); this.ctx.fill();
-                this.ctx.beginPath(); this.ctx.arc(activeX + INSET, visualCenterY, hs, 0, Math.PI*2); this.ctx.fill();
-            } else {
-                this.ctx.beginPath(); this.ctx.arc(activeX + INSET, topY + INSET, hs, 0, Math.PI*2); this.ctx.fill();
-                this.ctx.beginPath(); this.ctx.arc(activeX + INSET, bottomY - INSET, hs, 0, Math.PI*2); this.ctx.fill();
-                this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth - INSET, visualCenterY, hs, 0, Math.PI*2); this.ctx.fill();
-            }
+            if (this.side === 'left') { this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth - INSET, topY + INSET, hs, 0, Math.PI*2); this.ctx.fill(); this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth - INSET, bottomY - INSET, hs, 0, Math.PI*2); this.ctx.fill(); this.ctx.beginPath(); this.ctx.arc(activeX + INSET, visualCenterY, hs, 0, Math.PI*2); this.ctx.fill(); } 
+            else { this.ctx.beginPath(); this.ctx.arc(activeX + INSET, topY + INSET, hs, 0, Math.PI*2); this.ctx.fill(); this.ctx.beginPath(); this.ctx.arc(activeX + INSET, bottomY - INSET, hs, 0, Math.PI*2); this.ctx.fill(); this.ctx.beginPath(); this.ctx.arc(activeX + frameWidth - INSET, visualCenterY, hs, 0, Math.PI*2); this.ctx.fill(); }
         }
         this.ctx.restore();
     }
@@ -611,71 +498,43 @@ window.toggleEmojiPicker = function() {
     if (emojiPicker.classList.contains('hidden')) {
         const rect = btn.getBoundingClientRect();
         emojiPicker.style.top = (rect.bottom + 10) + 'px';
-        if (window.innerWidth < 300) { emojiPicker.style.left = '10px'; emojiPicker.style.right = 'auto'; }
-        else { emojiPicker.style.right = (window.innerWidth - rect.right > 10 ? window.innerWidth - rect.right : 10) + 'px'; emojiPicker.style.left = 'auto'; }
+        if (window.innerWidth < 300) { emojiPicker.style.left = '10px'; emojiPicker.style.right = 'auto'; } else { emojiPicker.style.right = (window.innerWidth - rect.right > 10 ? window.innerWidth - rect.right : 10) + 'px'; emojiPicker.style.left = 'auto'; }
         emojiPicker.classList.remove('hidden');
     } else emojiPicker.classList.add('hidden');
 }
-window.addEmoji = function(emoji) {
-    if (activeEditor) { activeEditor.addSticker(emoji); emojiPicker.classList.add('hidden'); }
-    else alert("Vui lòng chọn một khung ảnh!");
-}
+window.addEmoji = function(emoji) { if (activeEditor) { activeEditor.addSticker(emoji); emojiPicker.classList.add('hidden'); } else alert("Vui lòng chọn một khung ảnh!"); }
 document.addEventListener('click', (e) => { if (!emojiPicker.contains(e.target) && !document.getElementById('emojiBtn').contains(e.target)) emojiPicker.classList.add('hidden'); });
 
 function toggleFrameLock() { isFrameLocked = !isFrameLocked; updateLockUI(); saveHistory(); edit1.draw(); edit2.draw(); }
-function updateGlobalFrame(w, h) {
-    if (isFrameLocked) return;
-    if (w !== null) frameWidth = parseInt(w);
-    if (h !== null) { frameHeight = parseInt(h); frameY = CANVAS_HEIGHT - frameHeight; }
-    edit1.draw(); edit2.draw();
-}
-// --- HÀM BẬT TẮT LƯỚI & TRỤC ---
+function updateGlobalFrame(w, h) { if (isFrameLocked) return; if (w !== null) frameWidth = parseInt(w); if (h !== null) { frameHeight = parseInt(h); frameY = CANVAS_HEIGHT - frameHeight; } edit1.draw(); edit2.draw(); }
 function toggleGrid() {
     showGrid = !showGrid;
     const btn = document.getElementById('gridBtn');
-    if (showGrid) {
-        btn.classList.add('text-blue-500', 'border-blue-200', 'bg-blue-50');
-        btn.classList.remove('text-gray-400', 'border-gray-200', 'bg-white');
-    } else {
-        btn.classList.remove('text-blue-500', 'border-blue-200', 'bg-blue-50');
-        btn.classList.add('text-gray-400', 'border-gray-200', 'bg-white');
-    }
+    if (showGrid) { btn.classList.add('text-blue-500', 'border-blue-200', 'bg-blue-50'); btn.classList.remove('text-gray-400', 'border-gray-200', 'bg-white'); } 
+    else { btn.classList.remove('text-blue-500', 'border-blue-200', 'bg-blue-50'); btn.classList.add('text-gray-400', 'border-gray-200', 'bg-white'); }
     edit1.draw(); edit2.draw();
 }
-
 function toggleGridColor() {
     gridColor = (gridColor === 'light') ? 'dark' : 'light';
     const icon = document.querySelector('#gridColorBtn i');
-    if (gridColor === 'dark') {
-        icon.className = 'fa-solid fa-circle text-gray-700';
-    } else {
-        icon.className = 'fa-solid fa-circle-half-stroke';
-    }
+    if (gridColor === 'dark') { icon.className = 'fa-solid fa-circle text-gray-700'; } else { icon.className = 'fa-solid fa-circle-half-stroke'; }
     edit1.draw(); edit2.draw();
 }
-
 function toggleCenterAxis() {
     showCenterAxis = !showCenterAxis;
     const btn = document.getElementById('centerAxisBtn');
-    if (showCenterAxis) {
-        btn.classList.add('text-red-500', 'border-red-200', 'bg-red-50');
-        btn.classList.remove('text-gray-400', 'border-gray-200', 'bg-white');
-    } else {
-        btn.classList.remove('text-red-500', 'border-red-200', 'bg-red-50');
-        btn.classList.add('text-gray-400', 'border-gray-200', 'bg-white');
-    }
+    if (showCenterAxis) { btn.classList.add('text-red-500', 'border-red-200', 'bg-red-50'); btn.classList.remove('text-gray-400', 'border-gray-200', 'bg-white'); } 
+    else { btn.classList.remove('text-red-500', 'border-red-200', 'bg-red-50'); btn.classList.add('text-gray-400', 'border-gray-200', 'bg-white'); }
     edit1.draw(); edit2.draw();
 }
 
 function exportImage() {
     if(!edit1.isLoaded && !edit2.isLoaded) return alert("Chưa có ảnh nào!");
-    // Đã xóa includeGridInExport
     includeCenterAxisInExport = false; exportAxisCheck.checked = false;
     const nameInput = document.getElementById('downloadFileName');
     if (!nameInput.value.trim()) { const t = new Date().toISOString().slice(0,19).replace(/[-T:]/g,""); nameInput.value = `Compare_${t}`; }
     updateResultImage(); modal.classList.remove('hidden');
 }
-// Đã xóa listener exportGridCheck
 exportAxisCheck.addEventListener('change', (e) => { includeCenterAxisInExport = e.target.checked; updateResultImage(); });
 document.getElementById('label1Input').addEventListener('input', updateResultImage);
 document.getElementById('label2Input').addEventListener('input', updateResultImage);
@@ -708,36 +567,12 @@ window.addEventListener('keydown', (e) => {
     }
     if (!activeEditor || e.target.tagName === 'INPUT') return; 
     if (e.key === 'Delete' || e.key === 'Backspace') { activeEditor.deleteSelectedSticker(); e.preventDefault(); return; }
-    
-    // PHÍM TẮT ZOOM (ĐẢO NGƯỢC A/S)
-    if (e.key.toLowerCase() === 'a') { 
-        let newScale = activeEditor.state.scale - 0.01; 
-        if (newScale < 0.1) newScale = 0.1; 
-        activeEditor.state.scale = newScale; activeEditor.updateControls(); activeEditor.draw(); saveHistory();
-    }
-    if (e.key.toLowerCase() === 's') { 
-        let newScale = activeEditor.state.scale + 0.01; 
-        if (newScale > 4) newScale = 4; 
-        activeEditor.state.scale = newScale; activeEditor.updateControls(); activeEditor.draw(); saveHistory();
-    }
-
-    // PHÍM TẮT XOAY (Q/W)
-    if (e.key.toLowerCase() === 'q') {
-        activeEditor.state.angle -= 0.1;
-        activeEditor.updateControls(); activeEditor.draw(); saveHistory();
-    }
-    if (e.key.toLowerCase() === 'w') {
-        activeEditor.state.angle += 0.1;
-        activeEditor.updateControls(); activeEditor.draw(); saveHistory();
-    }
-
+    if (e.key.toLowerCase() === 'a') { let newScale = activeEditor.state.scale - 0.01; if (newScale < 0.1) newScale = 0.1; activeEditor.state.scale = newScale; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
+    if (e.key.toLowerCase() === 's') { let newScale = activeEditor.state.scale + 0.01; if (newScale > 4) newScale = 4; activeEditor.state.scale = newScale; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
+    if (e.key.toLowerCase() === 'q') { activeEditor.state.angle -= 0.1; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
+    if (e.key.toLowerCase() === 'w') { activeEditor.state.angle += 0.1; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
     let s = e.shiftKey ? 10 : 1; let h = false;
-    switch(e.key) {
-        case 'ArrowUp': activeEditor.pan(0, -s); h = true; break;
-        case 'ArrowDown': activeEditor.pan(0, s); h = true; break;
-        case 'ArrowLeft': activeEditor.pan(-s, 0); h = true; break;
-        case 'ArrowRight': activeEditor.pan(s, 0); h = true; break;
-    }
+    switch(e.key) { case 'ArrowUp': activeEditor.pan(0, -s); h = true; break; case 'ArrowDown': activeEditor.pan(0, s); h = true; break; case 'ArrowLeft': activeEditor.pan(-s, 0); h = true; break; case 'ArrowRight': activeEditor.pan(s, 0); h = true; break; }
     if (h) e.preventDefault();
 });
 
