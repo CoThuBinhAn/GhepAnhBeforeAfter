@@ -9,13 +9,12 @@ let frameY = 0;
 const MIN_W = 100;
 const MIN_H = 100;
 
-// Biến lưu tỷ lệ khi bắt đầu kéo
+// Biến lưu tỷ lệ khi bắt đầu kéo khung
 let dragStartRatio = 0; 
 let dragAnchorY = 0;
 
 let isExporting = false;
 let isFrameLocked = false; 
-// Đã xóa biến includeGridInExport không dùng đến nữa
 let includeCenterAxisInExport = false; 
 let isGhostMode = false;
 
@@ -144,7 +143,6 @@ window.setAspectRatio = function(wRatio, hRatio) {
     frameWidth = Math.round(newW); frameHeight = Math.round(newH); 
     frameY = (CANVAS_HEIGHT - frameHeight) / 2;
     isFrameLocked = true; updateLockUI();
-    
     edit1.draw(); edit2.draw(); 
     showToast(`Tỉ lệ ${wRatio}:${hRatio}`);
 }
@@ -170,6 +168,10 @@ class Editor {
         this.crop = { t: 0, b: 0, l: 0, r: 0 }; this.state = { x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2, scale: 1, angle: 0 }; this.stickers = []; 
         this.drag = { isDragging: false, lastX: 0, lastY: 0 };
         this.interaction = { active: false, type: 'none', startDist: 0, startScale: 1, anchorCanvas: { x: 0, y: 0 }, stickerIndex: -1 };
+        
+        // --- PINCH ZOOM VARIABLES ---
+        this.pinch = { active: false, startDist: 0, startScale: 1 };
+
         this.initEvents(uploadId);
     }
 
@@ -228,13 +230,13 @@ class Editor {
     }
 
     checkHit(x, y) {
-        const margin = 25; 
+        const margin = 30; // Tăng vùng bấm cho điện thoại
         if (this.isLoaded && this.interaction.stickerIndex !== -1 && this.interaction.stickerIndex < this.stickers.length) {
             const s = this.stickers[this.interaction.stickerIndex];
             const half = 100 * s.scale / 2;
             const corners = [{x:s.x-half,y:s.y-half},{x:s.x+half,y:s.y-half},{x:s.x+half,y:s.y+half},{x:s.x-half,y:s.y+half}];
             const screenCorners = corners.map(p => this.transformPoint(p.x, p.y, this.state.scale, this.state.angle, this.state.x, this.state.y));
-            for(let k=0; k<4; k++) { if (Math.sqrt((x-screenCorners[k].x)**2 + (y-screenCorners[k].y)**2) < 20) return { type: 'sticker-resize', index: this.interaction.stickerIndex, handle: k, anchorLocal: corners[(k+2)%4] }; }
+            for(let k=0; k<4; k++) { if (Math.sqrt((x-screenCorners[k].x)**2 + (y-screenCorners[k].y)**2) < margin) return { type: 'sticker-resize', index: this.interaction.stickerIndex, handle: k, anchorLocal: corners[(k+2)%4] }; }
         }
         
         if (!isFrameLocked) {
@@ -248,7 +250,6 @@ class Editor {
             if (Math.abs(y - topY) < margin && x > activeX && x < rightX) return { type: 'frame-edge-top' };
             if (Math.abs(y - botY) < margin && x > activeX && x < rightX) return { type: 'frame-edge-bot' };
             
-            // Side Edge Check
             let sideEdgeX = (this.side === 'left') ? activeX : rightX;
             if (Math.abs(x - sideEdgeX) < margin && y > topY && y < botY) return { type: 'frame-edge-side' };
         }
@@ -277,7 +278,6 @@ class Editor {
                     const max = 1920; let w=i.width, h=i.height; if(w>max||h>max) { if(w>h){h*=max/w;w=max}else{w*=max/h;h=max} }
                     const c = document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(i,0,0,w,h);
                     this.img.src = c.toDataURL('image/jpeg', 0.8);
-                    
                     this.img.onload = () => { 
                         this.isLoaded=true; 
                         this.crop={t:0,b:0,l:0,r:0}; 
@@ -286,8 +286,6 @@ class Editor {
                         this.setActive(); 
                         saveHistory(); 
                         saveImagesToLocalStorage();
-                        
-                        // FIX: Tự động khóa khung sau khi upload
                         isFrameLocked = true;
                         updateLockUI();
                     }
@@ -308,7 +306,20 @@ class Editor {
         if(this.zoomInput) { this.zoomInput.addEventListener('input', (e)=>sync(e.target.value, 'zoom')); this.zoomInput.addEventListener('change', ()=>saveHistory()); }
 
         const start = (e) => {
-            this.setActive(); if (e.cancelable && !this.isLoaded) return;
+            this.setActive(); 
+            // --- LOGIC PINCH TO ZOOM START ---
+            if (e.touches && e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                this.pinch.active = true;
+                this.pinch.startDist = Math.sqrt(dx*dx + dy*dy);
+                this.pinch.startScale = this.state.scale;
+                return;
+            }
+            // --- END PINCH START ---
+
+            if (e.cancelable && !this.isLoaded) return;
             const c = this.getCanvasCoords(e); const hit = this.checkHit(c.x, c.y);
             this.interaction.active = true; this.interaction.type = hit.type;
             this.drag.lastX = e.touches ? e.touches[0].clientX : e.clientX; this.drag.lastY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -339,6 +350,25 @@ class Editor {
         };
 
         const move = (e) => {
+            // --- LOGIC PINCH TO ZOOM MOVE ---
+            if (this.pinch.active && e.touches && e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (this.pinch.startDist > 0) {
+                    let newScale = (dist / this.pinch.startDist) * this.pinch.startScale;
+                    if (newScale < 0.1) newScale = 0.1;
+                    if (newScale > 4) newScale = 4;
+                    this.state.scale = newScale;
+                    this.updateControls();
+                    this.draw();
+                }
+                return;
+            }
+            // --- END PINCH MOVE ---
+
             const c = this.getCanvasCoords(e);
             if (!this.interaction.active) return;
             if (e.cancelable) e.preventDefault();
@@ -381,11 +411,8 @@ class Editor {
                 else if (t === 'frame-edge-side') {
                     let newW = frameWidth;
                     if (this.side === 'left') {
-                        // Kéo cạnh trái (với Editor Left) thực chất là thay đổi khoảng cách từ center
-                        // Tọa độ chuột c.x càng nhỏ -> width càng lớn
                         newW = CANVAS_WIDTH - c.x;
                     } else {
-                        // Kéo cạnh phải (với Editor Right)
                         newW = c.x;
                     }
                     if (newW < MIN_W) newW = MIN_W;
@@ -396,7 +423,13 @@ class Editor {
                 edit1.draw(); edit2.draw();
             }
         };
-        const end = () => { if(this.interaction.active) saveHistory(); this.interaction.active = false; this.interaction.type = 'none'; this.canvas.style.cursor = 'grab'; };
+        const end = () => { 
+            this.pinch.active = false; // Reset Pinch state
+            if(this.interaction.active) saveHistory(); 
+            this.interaction.active = false; 
+            this.interaction.type = 'none'; 
+            this.canvas.style.cursor = 'grab'; 
+        };
         
         this.canvas.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
         this.canvas.addEventListener('touchstart', start, {passive:false}); window.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
@@ -427,17 +460,98 @@ class Editor {
             this.ctx.restore();
             if(!isExporting) { this.drawImageHandles(); this.drawCropHandles(); }
         }
-        if (isGhostMode && this.side === 'right' && edit1.isLoaded) { this.ctx.save(); this.ctx.globalAlpha = 0.4; this.ctx.drawImage(edit1.canvas, 0, 0); this.ctx.restore(); }
+        
+        // --- GHOST MODE ĐÃ SỬA LỖI ---
+        if (isGhostMode && this.side === 'right' && edit1.isLoaded) {
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.4;
+            const sourceX = CANVAS_WIDTH - frameWidth;
+            const sourceY = frameY;
+            const destX = 0;
+            const destY = frameY;
+            this.ctx.drawImage(edit1.canvas, sourceX, sourceY, frameWidth, frameHeight, destX, destY, frameWidth, frameHeight);
+            this.ctx.restore();
+        }
+        
+        // --- VẼ LƯỚI & TRỤC ---
         if(showGrid && (!isExporting)) this.drawGrid();
         if(!isExporting) { this.drawFrameMask(); this.drawStickerControls(); if(showCenterAxis) this.drawCenterAxis(); }
         else if(includeCenterAxisInExport) this.drawCenterAxis();
     }
 
+    // --- CÁC HÀM PHỤ TRỢ ---
     drawStickerControls() { if(this.interaction.stickerIndex===-1)return; const s=this.stickers[this.interaction.stickerIndex]; const h=100*s.scale/2; const pts=[{x:s.x-h,y:s.y-h},{x:s.x+h,y:s.y-h},{x:s.x+h,y:s.y+h},{x:s.x-h,y:s.y+h}].map(p=>this.transformPoint(p.x,p.y,this.state.scale,this.state.angle,this.state.x,this.state.y)); this.ctx.save();this.ctx.strokeStyle="#fbbf24";this.ctx.lineWidth=2;this.ctx.setLineDash([5,5]);this.ctx.beginPath();this.ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)this.ctx.lineTo(pts[i].x,pts[i].y);this.ctx.closePath();this.ctx.stroke();this.ctx.setLineDash([]);this.ctx.fillStyle="#fff";pts.forEach(p=>{this.ctx.beginPath();this.ctx.arc(p.x,p.y,3,0,Math.PI*2);this.ctx.fill();this.ctx.stroke();});this.ctx.restore(); }
-    drawCenterAxis() { let ax=(this.side==='left')?(CANVAS_WIDTH-frameWidth):0;const cx=ax+frameWidth/2;this.ctx.save();this.ctx.strokeStyle="rgba(251,113,133,0.8)";this.ctx.lineWidth=2;this.ctx.setLineDash([10,5]);this.ctx.beginPath();this.ctx.moveTo(cx,frameY);this.ctx.lineTo(cx,frameY+frameHeight);this.ctx.stroke();this.ctx.restore(); }
+    
+    drawCenterAxis() { 
+        let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
+        const centerX = activeX + frameWidth / 2;
+        this.ctx.save();
+        this.ctx.strokeStyle = "#ef4444"; 
+        this.ctx.lineWidth = 1.5;
+        this.ctx.setLineDash([10, 5]); 
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX, frameY);
+        this.ctx.lineTo(centerX, frameY + frameHeight);
+        this.ctx.stroke();
+        this.ctx.restore(); 
+    }
+    
     drawImageHandles() { const c=this.getVisibleCorners();this.ctx.save();this.ctx.fillStyle="#3b82f6";this.ctx.strokeStyle="white";this.ctx.lineWidth=2;c.forEach(p=>{this.ctx.beginPath();this.ctx.arc(p.x,p.y,6,0,Math.PI*2);this.ctx.fill();this.ctx.stroke();});this.ctx.restore(); }
     drawCropHandles() { const h=this.getCropHandles();this.ctx.save();this.ctx.fillStyle="#ef4444";this.ctx.strokeStyle="white";this.ctx.lineWidth=2;for(let k in h){const p=h[k];this.ctx.beginPath();this.ctx.rect(p.x-4,p.y-4,8,8);this.ctx.fill();this.ctx.stroke();}this.ctx.restore(); }
-    drawGrid() { let ax=(this.side==='left')?(CANVAS_WIDTH-frameWidth):0;this.ctx.save();this.ctx.beginPath();this.ctx.rect(ax,frameY,frameWidth,frameHeight);this.ctx.clip();this.ctx.translate(ax,frameY);this.ctx.strokeStyle=(gridColor==='light')?"rgba(255,255,255,0.6)":"rgba(0,0,0,0.2)";this.ctx.lineWidth=0.5;for(let i=30;i<frameWidth;i+=30){this.ctx.beginPath();this.ctx.moveTo(i,0);this.ctx.lineTo(i,frameHeight);this.ctx.stroke();}for(let i=30;i<frameHeight;i+=30){this.ctx.beginPath();this.ctx.moveTo(0,i);this.ctx.lineTo(frameWidth,i);this.ctx.stroke();}this.ctx.strokeStyle=(gridColor==='light')?"rgba(255,255,255,0.9)":"rgba(0,0,0,0.4)";this.ctx.lineWidth=1.5;this.ctx.beginPath();this.ctx.moveTo(frameWidth/3,0);this.ctx.lineTo(frameWidth/3,frameHeight);this.ctx.moveTo(frameWidth*2/3,0);this.ctx.lineTo(frameWidth*2/3,frameHeight);this.ctx.moveTo(0,frameHeight/3);this.ctx.lineTo(frameWidth,frameHeight/3);this.ctx.moveTo(0,frameHeight*2/3);this.ctx.lineTo(frameWidth,frameHeight*2/3);this.ctx.stroke();this.ctx.restore(); }
+    
+    // --- HÀM VẼ LƯỚI TÙY CHỈNH (CẬP NHẬT) ---
+    drawGrid() { 
+        let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
+        this.ctx.save();
+        this.ctx.beginPath();
+        // Giới hạn vùng vẽ trong khung
+        this.ctx.rect(activeX, frameY, frameWidth, frameHeight);
+        this.ctx.clip();
+        this.ctx.translate(activeX, frameY);
+
+        // ===========================================================
+        // 👇 THAY ĐỔI SỐ Ô MUỐN CHIA NHỎ Ở ĐÂY (VD: 10, 20, 50...)
+        const soOChia = 30; 
+        // ===========================================================
+
+        // 1. VẼ CÁC ĐƯỜNG LƯỚI PHỤ (Mỏng & Mờ)
+        this.ctx.beginPath();
+        // Màu sắc tự động theo chế độ Sáng/Tối
+        this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.2)";
+        this.ctx.lineWidth = 0.5; // Nét rất mảnh
+
+        const subStepX = frameWidth / soOChia;
+        const subStepY = frameHeight / soOChia;
+
+        for (let i = 1; i < soOChia; i++) {
+            // Kẻ dọc phụ
+            this.ctx.moveTo(subStepX * i, 0);
+            this.ctx.lineTo(subStepX * i, frameHeight);
+            
+            // Kẻ ngang phụ
+            this.ctx.moveTo(0, subStepY * i);
+            this.ctx.lineTo(frameWidth, subStepY * i);
+        }
+        this.ctx.stroke();
+
+        // 2. VẼ ĐƯỜNG LƯỚI CHÍNH 3x3 (Rule of Thirds - Đậm & Rõ hơn)
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)";
+        this.ctx.lineWidth = 1.5; // Nét đậm
+
+        const stepX = frameWidth / 3;
+        const stepY = frameHeight / 3;
+
+        // Kẻ dọc chính
+        this.ctx.moveTo(stepX, 0); this.ctx.lineTo(stepX, frameHeight);
+        this.ctx.moveTo(stepX * 2, 0); this.ctx.lineTo(stepX * 2, frameHeight);
+        // Kẻ ngang chính
+        this.ctx.moveTo(0, stepY); this.ctx.lineTo(frameWidth, stepY);
+        this.ctx.moveTo(0, stepY * 2); this.ctx.lineTo(frameWidth, stepY * 2);
+        
+        this.ctx.stroke();
+        this.ctx.restore(); 
+    }
 
     drawFrameMask() {
         this.ctx.save();
@@ -482,7 +596,7 @@ const edit2 = new Editor('canvas2', 'wrapper2', 'upload2', 'rotateRange2', 'rota
 
 const modal = document.getElementById('previewModal');
 const previewImg = document.getElementById('previewImage');
-const exportGridCheck = document.getElementById('exportGridCheck'); // ĐÃ XÓA CHECKBOX LƯỚI Ở HTML NÊN BIẾN NÀY SẼ NULL, TUY NHIÊN TRONG CODE ĐÃ REMOVE LISTENER NÊN KO SAO. NHƯNG ĐỂ SẠCH HƠN NÊN XÓA DÒNG NÀY LUÔN.
+const exportGridCheck = document.getElementById('exportGridCheck'); 
 const exportAxisCheck = document.getElementById('exportAxisCheck');
 let currentDataUrl = '';
 
@@ -515,15 +629,43 @@ function updateGlobalFrame(w, h) {
     if (h !== null) { frameHeight = parseInt(h); frameY = CANVAS_HEIGHT - frameHeight; }
     edit1.draw(); edit2.draw();
 }
-function toggleGrid() { showGrid = !showGrid; if(showGrid){gridBtn.classList.add('text-pink-500','bg-pink-50');gridBtn.classList.remove('text-gray-400')}else{gridBtn.classList.remove('text-pink-500','bg-pink-50');gridBtn.classList.add('text-gray-400')} edit1.draw(); edit2.draw(); }
-function toggleGridColor() {
-    gridColor = (gridColor === 'light') ? 'dark' : 'light';
-    const icon = gridColorBtn.querySelector('i');
-    if (gridColor === 'dark') { icon.className = 'fa-solid fa-circle text-gray-800'; gridColorBtn.title="Tối"; }
-    else { icon.className = 'fa-solid fa-circle-half-stroke'; gridColorBtn.title="Sáng"; }
+// --- HÀM BẬT TẮT LƯỚI & TRỤC ---
+function toggleGrid() {
+    showGrid = !showGrid;
+    const btn = document.getElementById('gridBtn');
+    if (showGrid) {
+        btn.classList.add('text-blue-500', 'border-blue-200', 'bg-blue-50');
+        btn.classList.remove('text-gray-400', 'border-gray-200', 'bg-white');
+    } else {
+        btn.classList.remove('text-blue-500', 'border-blue-200', 'bg-blue-50');
+        btn.classList.add('text-gray-400', 'border-gray-200', 'bg-white');
+    }
     edit1.draw(); edit2.draw();
 }
-function toggleCenterAxis() { showCenterAxis = !showCenterAxis; if(showCenterAxis){centerAxisBtn.classList.add('text-red-400','bg-pink-50');centerAxisBtn.classList.remove('text-gray-400')}else{centerAxisBtn.classList.remove('text-red-400','bg-pink-50');centerAxisBtn.classList.add('text-gray-400')} edit1.draw(); edit2.draw(); }
+
+function toggleGridColor() {
+    gridColor = (gridColor === 'light') ? 'dark' : 'light';
+    const icon = document.querySelector('#gridColorBtn i');
+    if (gridColor === 'dark') {
+        icon.className = 'fa-solid fa-circle text-gray-700';
+    } else {
+        icon.className = 'fa-solid fa-circle-half-stroke';
+    }
+    edit1.draw(); edit2.draw();
+}
+
+function toggleCenterAxis() {
+    showCenterAxis = !showCenterAxis;
+    const btn = document.getElementById('centerAxisBtn');
+    if (showCenterAxis) {
+        btn.classList.add('text-red-500', 'border-red-200', 'bg-red-50');
+        btn.classList.remove('text-gray-400', 'border-gray-200', 'bg-white');
+    } else {
+        btn.classList.remove('text-red-500', 'border-red-200', 'bg-red-50');
+        btn.classList.add('text-gray-400', 'border-gray-200', 'bg-white');
+    }
+    edit1.draw(); edit2.draw();
+}
 
 function exportImage() {
     if(!edit1.isLoaded && !edit2.isLoaded) return alert("Chưa có ảnh nào!");
@@ -600,10 +742,3 @@ window.addEventListener('keydown', (e) => {
 });
 
 edit1.draw(); edit2.draw(); loadFromLocalStorage();
-const stageContainer = document.getElementById('stageContainer');
-const controlsArea = document.getElementById('controlsArea');
-if (stageContainer && controlsArea) {
-    const ro = new ResizeObserver(entries => {
-        window.requestAnimationFrame(() => { for (let e of entries) { const r = stageContainer.getBoundingClientRect(); controlsArea.style.width = `${r.width}px`; } });
-    }); ro.observe(stageContainer);
-}

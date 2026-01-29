@@ -2,8 +2,8 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cô Thư Bình An - Ghép Ảnh Before After</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cô Thư Bình An - So Sánh Ảnh</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Merriweather:wght@300;700&family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
@@ -13,178 +13,139 @@
             theme: { extend: { colors: { brand: { pink: '#db2777', light: '#fdf2f8', text: '#374151', green: '#416D38' } }, fontFamily: { sans: ['Quicksand', 'sans-serif'], brand: ['Merriweather', 'serif'], dancing: ['Dancing Script', 'cursive'] } } }
         }
     </script>
+    <style>
+        /* Ẩn thanh cuộn nhưng vẫn trượt được */
+        .scrolling-wrapper { -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; }
+        .scrolling-wrapper::-webkit-scrollbar { display: none; }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-rose-50 via-white to-green-50 text-gray-700 h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-gray-50 text-gray-700 h-[100dvh] flex flex-col font-sans overflow-hidden">
 
     <datalist id="tick-rotate"><option value="0"></option></datalist>
 
-    <div class="shrink-0 z-50 shadow-sm bg-white/90 backdrop-blur-md border-b border-green-100">
-        <div class="max-w-7xl mx-auto px-2 py-2 flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar">
+    <div class="shrink-0 z-50 bg-white shadow-sm border-b border-gray-100">
+        
+        <div class="flex justify-center items-center py-2 bg-gradient-to-r from-green-50/50 via-white to-green-50/50 border-b border-gray-100">
+            <div class="flex items-center gap-2 select-none">
+                <img src="Logo.png" alt="Logo" class="h-8 md:h-10 w-auto object-contain">
+                <h1 class="font-dancing text-xl md:text-2xl font-bold text-brand-green">Cô Thư Bình An 🌿</h1>
+            </div>
+        </div>
+
+        <div class="scrolling-wrapper flex items-center justify-start md:justify-center px-3 py-2 gap-3 overflow-x-auto whitespace-nowrap w-full bg-white">
             
-            <div class="flex items-center gap-2 mr-2 shrink-0 select-none group">
-                <img src="Logo.png" alt="Logo" class="h-10 w-auto object-contain">
-                <h1 class="font-dancing text-2xl font-bold whitespace-nowrap text-brand-green hidden sm:block">Cô Thư Bình An 🌿</h1>
+            <div class="flex gap-1 shrink-0">
+                <label class="btn-tool bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] px-3 h-8 shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-up"></i><span>Trái</span>
+                    <input type="file" id="upload1" accept="image/*" class="hidden">
+                </label>
+                <label class="btn-tool bg-gradient-to-r from-orange-400 to-amber-500 text-white text-[10px] px-3 h-8 shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-up"></i><span>Phải</span>
+                    <input type="file" id="upload2" accept="image/*" class="hidden">
+                </label>
             </div>
 
-            <div class="flex items-center gap-2 flex-grow justify-end">
-                <div class="flex gap-1 shrink-0">
-                    <label class="btn-tool bg-gradient-to-r from-pink-500 to-rose-500 text-white"><i class="fa-solid fa-cloud-arrow-up"></i><span class="hidden md:inline ml-1">Trái</span><input type="file" id="upload1" accept="image/*" class="hidden"></label>
-                    <label class="btn-tool bg-gradient-to-r from-orange-400 to-amber-500 text-white"><i class="fa-solid fa-cloud-arrow-up"></i><span class="hidden md:inline ml-1">Phải</span><input type="file" id="upload2" accept="image/*" class="hidden"></label>
+            <div class="w-px h-5 bg-gray-200 shrink-0"></div>
+
+            <div class="flex bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                <button onclick="setAspectRatio(1, 1)" class="px-2 py-1 text-[10px] font-bold text-gray-500 hover:text-green-600 transition">1:1</button>
+                <div class="w-px bg-gray-200"></div>
+                <button onclick="setAspectRatio(4, 5)" class="px-2 py-1 text-[10px] font-bold text-gray-500 hover:text-green-600 transition">4:5</button>
+                <div class="w-px bg-gray-200"></div>
+                <button onclick="setAspectRatio(9, 16)" class="px-2 py-1 text-[10px] font-bold text-gray-500 hover:text-green-600 transition">9:16</button>
+            </div>
+
+            <div class="w-px h-5 bg-gray-200 shrink-0"></div>
+
+            <div class="flex gap-1.5 items-center shrink-0">
+                <div class="flex bg-gray-50 rounded-full border border-gray-200 p-0.5 shrink-0">
+                    <button onclick="toggleGrid()" id="gridBtn" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition"><i class="fa-solid fa-border-all text-xs"></i></button>
+                    <button onclick="toggleGridColor()" id="gridColorBtn" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-800 transition"><i class="fa-solid fa-circle-half-stroke text-xs"></i></button>
                 </div>
-                <div class="w-px h-6 bg-gray-300 hidden md:block mx-1"></div>
+
+                <button onclick="toggleCenterAxis()" id="centerAxisBtn" class="w-8 h-8 rounded-full border flex items-center justify-center text-red-500 border-red-200 bg-red-50 shadow-sm text-xs"><i class="fa-solid fa-grip-lines-vertical"></i></button>
+                <button onclick="toggleFrameLock()" id="lockBtn" class="w-8 h-8 rounded-full border flex items-center justify-center text-emerald-600 border-emerald-200 bg-white shadow-sm text-xs"><i class="fa-solid fa-lock-open"></i></button>
+                <button onclick="toggleGhostMode()" id="ghostBtn" class="w-8 h-8 rounded-full border flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm text-xs"><i class="fa-solid fa-eye"></i></button>
+                <button onclick="toggleEmojiPicker()" id="emojiBtn" class="w-8 h-8 rounded-full border flex items-center justify-center text-yellow-500 border-yellow-200 bg-white shadow-sm text-xs"><i class="fa-solid fa-icons"></i></button>
                 
-                <div class="hidden md:flex bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm shrink-0">
-                    <button onclick="setAspectRatio(1, 1)" class="preset-btn">1:1</button>
-                    <button onclick="setAspectRatio(4, 5)" class="preset-btn border-l border-r border-gray-100">4:5</button>
-                    <button onclick="setAspectRatio(9, 16)" class="preset-btn">9:16</button>
+                <button onclick="exportImage()" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold px-3 h-8 rounded-lg text-[10px] shadow-md flex items-center gap-1 ml-1 whitespace-nowrap">
+                    <i class="fa-solid fa-download"></i> Tải
+                </button>
+
+                <button onclick="toggleHelpModal()" class="text-blue-400 p-1 ml-1"><i class="fa-solid fa-circle-question text-lg"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow flex flex-col items-center justify-center p-2 min-h-0 bg-gray-50 w-full overflow-hidden">
+        <div id="stageContainer" class="relative shadow-xl rounded-lg overflow-hidden bg-white flex ring-1 ring-gray-200" style="aspect-ratio: 1080/960; max-height: 100%; max-width: 100%;">
+            <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white z-10 transform -translate-x-1/2 pointer-events-none shadow-sm"></div>
+            <div id="wrapper1" class="relative w-1/2 h-full canvas-bg group">
+                <canvas id="canvas1" class="w-full h-full block"></canvas>
+                <div id="placeholder1" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none"><i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-pink-300"></i><span class="text-[10px] font-bold">BEFORE</span></div>
+            </div>
+            <div id="wrapper2" class="relative w-1/2 h-full canvas-bg group">
+                <canvas id="canvas2" class="w-full h-full block"></canvas>
+                <div id="placeholder2" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none"><i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-orange-300"></i><span class="text-[10px] font-bold">AFTER</span></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="controlsArea" class="shrink-0 w-full bg-white border-t border-gray-200 px-3 py-2 pb-8 md:pb-4 z-40 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <div class="max-w-4xl mx-auto grid grid-cols-2 gap-3">
+            <div class="control-panel border-l-2 border-pink-400 pl-2">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[10px] font-bold text-pink-500 uppercase tracking-wider">Trái</span>
                 </div>
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 text-[10px] w-3"></i>
+                    <input type="range" id="zoomRange1" min="0.1" max="3" step="0.01" value="1" class="flex-grow h-1 cursor-pointer accent-pink-500 bg-gray-200 rounded-lg appearance-none">
+                    <input type="number" id="zoomInput1" value="1.0" step="0.01" class="w-10 text-[10px] text-center border border-gray-200 rounded py-0.5 bg-gray-50 focus:border-pink-500 outline-none font-mono">
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-rotate text-gray-400 text-[10px] w-3"></i>
+                    <input type="range" id="rotateRange1" min="-45" max="45" step="0.5" value="0" list="tick-rotate" class="flex-grow h-1 cursor-pointer accent-pink-500 bg-gray-200 rounded-lg appearance-none">
+                    <input type="number" id="rotateInput1" value="0" step="0.5" class="w-10 text-[10px] text-center border border-gray-200 rounded py-0.5 bg-gray-50 focus:border-pink-500 outline-none font-mono">
+                </div>
+            </div>
 
-                <div class="flex gap-1.5 items-center shrink-0">
-                    <button onclick="toggleFrameLock()" id="lockBtn" class="btn-icon text-emerald-600 border-emerald-200" title="Mở khóa khung xanh"><i class="fa-solid fa-lock-open"></i></button>
-                    <button onclick="toggleGhostMode()" id="ghostBtn" class="btn-icon text-gray-500 border-gray-300" title="Soi bóng"><i class="fa-solid fa-eye"></i></button>
-                    <button onclick="toggleEmojiPicker()" id="emojiBtn" class="btn-icon text-yellow-500 border-yellow-200"><i class="fa-solid fa-icons"></i></button>
-                    
-                    <button onclick="exportImage()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs md:text-sm shadow-md transition flex items-center gap-2 whitespace-nowrap ml-1">
-                        <i class="fa-solid fa-download"></i> <span class="hidden lg:inline">Tải Về</span>
-                    </button>
-
-                    <button onclick="toggleHelpModal()" class="text-blue-400 hover:bg-blue-50 p-2 rounded-full transition"><i class="fa-solid fa-circle-question text-lg"></i></button>
-                    <button onclick="openResetModal()" class="text-rose-400 hover:bg-rose-50 p-2 rounded-full transition"><i class="fa-solid fa-trash-can"></i></button>
+            <div class="control-panel border-l-2 border-orange-400 pl-2">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Phải</span>
+                </div>
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 text-[10px] w-3"></i>
+                    <input type="range" id="zoomRange2" min="0.1" max="3" step="0.01" value="1" class="flex-grow h-1 cursor-pointer accent-orange-500 bg-gray-200 rounded-lg appearance-none">
+                    <input type="number" id="zoomInput2" value="1.0" step="0.01" class="w-10 text-[10px] text-center border border-gray-200 rounded py-0.5 bg-gray-50 focus:border-orange-500 outline-none font-mono">
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-rotate text-gray-400 text-[10px] w-3"></i>
+                    <input type="range" id="rotateRange2" min="-45" max="45" step="0.5" value="0" list="tick-rotate" class="flex-grow h-1 cursor-pointer accent-orange-500 bg-gray-200 rounded-lg appearance-none">
+                    <input type="number" id="rotateInput2" value="0" step="0.5" class="w-10 text-[10px] text-center border border-gray-200 rounded py-0.5 bg-gray-50 focus:border-orange-500 outline-none font-mono">
                 </div>
             </div>
         </div>
     </div>
 
-    <main class="flex-grow flex flex-col items-center justify-between p-2 min-h-0 bg-gray-50">
-        <div class="flex-1 w-full min-h-0 flex items-center justify-center relative">
-            <div id="stageContainer" class="relative shadow-xl rounded-lg overflow-hidden bg-white flex ring-1 ring-gray-200 pb-1" style="aspect-ratio: 1080/960; max-height: 100%; max-width: 100%;">
-                <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white z-10 transform -translate-x-1/2 pointer-events-none shadow-sm"></div>
-                <div id="wrapper1" class="relative w-1/2 h-full canvas-bg group"><canvas id="canvas1" class="w-full h-full block"></canvas>
-                    <div id="placeholder1" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none"><i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-pink-300"></i><span class="text-xs font-bold">BEFORE</span></div>
-                </div>
-                <div id="wrapper2" class="relative w-1/2 h-full canvas-bg group"><canvas id="canvas2" class="w-full h-full block"></canvas>
-                    <div id="placeholder2" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none"><i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-orange-300"></i><span class="text-xs font-bold">AFTER</span></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="controlsArea" class="shrink-0 mt-2 transition-[width] duration-75 ease-out w-full max-w-4xl pb-2">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="control-panel border-l-4 border-pink-400">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[10px] font-bold text-pink-500 uppercase">Trái</span>
-                    </div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <i class="fa-solid fa-magnifying-glass text-gray-400 text-xs w-4"></i>
-                        <input type="range" id="zoomRange1" min="0.1" max="3" step="0.01" value="1" class="flex-grow h-1.5 cursor-pointer accent-pink-500 bg-gray-200 rounded-lg appearance-none">
-                        <input type="number" id="zoomInput1" value="1.0" step="0.01" class="w-12 text-[10px] text-center border rounded py-0.5 bg-gray-50 focus:border-pink-500 outline-none font-mono">
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-rotate text-gray-400 text-xs w-4"></i>
-                        <input type="range" id="rotateRange1" min="-45" max="45" step="0.5" value="0" list="tick-rotate" class="flex-grow h-1.5 cursor-pointer accent-pink-500 bg-gray-200 rounded-lg appearance-none">
-                        <input type="number" id="rotateInput1" value="0" step="0.5" class="w-12 text-[10px] text-center border rounded py-0.5 bg-gray-50 focus:border-pink-500 outline-none font-mono">
-                    </div>
-                </div>
-
-                <div class="control-panel border-l-4 border-orange-400">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[10px] font-bold text-orange-500 uppercase">Phải</span>
-                    </div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <i class="fa-solid fa-magnifying-glass text-gray-400 text-xs w-4"></i>
-                        <input type="range" id="zoomRange2" min="0.1" max="3" step="0.01" value="1" class="flex-grow h-1.5 cursor-pointer accent-orange-500 bg-gray-200 rounded-lg appearance-none">
-                        <input type="number" id="zoomInput2" value="1.0" step="0.01" class="w-12 text-[10px] text-center border rounded py-0.5 bg-gray-50 focus:border-orange-500 outline-none font-mono">
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-rotate text-gray-400 text-xs w-4"></i>
-                        <input type="range" id="rotateRange2" min="-45" max="45" step="0.5" value="0" list="tick-rotate" class="flex-grow h-1.5 cursor-pointer accent-orange-500 bg-gray-200 rounded-lg appearance-none">
-                        <input type="number" id="rotateInput2" value="0" step="0.5" class="w-12 text-[10px] text-center border rounded py-0.5 bg-gray-50 focus:border-orange-500 outline-none font-mono">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
     <div id="helpModal" class="fixed inset-0 bg-gray-900/50 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-0 border border-white/50 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 border-b border-emerald-100 flex justify-between items-center">
-                <h3 class="text-emerald-700 font-brand font-bold text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-book-open"></i> Hướng Dẫn Sử Dụng
-                </h3>
-                <button onclick="toggleHelpModal()" class="text-gray-400 hover:text-gray-600 w-8 h-8 rounded-full flex items-center justify-center transition hover:bg-white/50">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
+                <h3 class="text-emerald-700 font-brand font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-book-open"></i> Hướng Dẫn Sử Dụng</h3>
+                <button onclick="toggleHelpModal()" class="text-gray-400 hover:text-gray-600 w-8 h-8 rounded-full flex items-center justify-center transition hover:bg-white/50"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            
             <div class="p-6 overflow-y-auto font-sans text-gray-700 text-sm leading-relaxed space-y-5">
-                
-                <div class="flex gap-3">
-                    <div class="font-bold text-pink-500 text-lg shrink-0">1.</div>
-                    <div>
-                        <p>Tải ảnh lên bằng nút <span class="inline-flex items-center justify-center bg-gradient-to-r from-pink-500 to-rose-500 text-white w-6 h-6 rounded-full text-[10px] mx-1 shadow-sm"><i class="fa-solid fa-cloud-arrow-up"></i></span> (Trái/Phải).</p>
-                    </div>
-                </div>
-
-                <div class="flex gap-3">
-                    <div class="font-bold text-pink-500 text-lg shrink-0">2.</div>
-                    <div>
-                        <p class="mb-1">Chọn tỷ lệ khung hình mong muốn trên thanh công cụ: <strong>1:1</strong> (Vuông), <strong>4:5</strong> (Dọc) hoặc <strong>9:16</strong> (Story).</p>
-                        <p class="text-gray-500 text-xs bg-gray-50 p-2 rounded border border-gray-100">
-                            <i class="fa-solid fa-circle-info text-blue-400"></i> Lưu ý: Sau khi chọn tỷ lệ, nếu muốn tự thay đổi kích thước khung, hãy bấm nút <strong>Mở Khóa</strong> 
-                            <span class="inline-flex items-center justify-center bg-white border border-emerald-200 text-emerald-600 w-5 h-5 rounded-full text-[10px] mx-1 shadow-sm"><i class="fa-solid fa-lock-open"></i></span> 
-                            để có thể kéo chỉnh tùy ý.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="flex gap-3">
-                    <div class="font-bold text-pink-500 text-lg shrink-0">3.</div>
-                    <div>
-                        <p class="font-bold text-gray-800">Chỉnh sửa ảnh:</p>
-                        <ul class="list-disc pl-4 mt-1 space-y-1 text-gray-600">
-                            <li>Phím <kbd class="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-gray-600">A</kbd> & <kbd class="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-gray-600">S</kbd> để zoom hình to/nhỏ.</li>
-                            <li>Phím <kbd class="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-gray-600">Q</kbd> & <kbd class="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-gray-600">W</kbd> để xoay hình nghiêng trái/phải.</li>
-                            <li>Kết hợp Zoom, Xoay và dùng  <strong>chuột</strong> và <strong>các phím mũi tên</strong> để di chuyển hình cho vừa khung theo mong muốn.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="flex gap-3">
-                    <div class="font-bold text-pink-500 text-lg shrink-0">4.</div>
-                    <div>
-                        <p>Bấm nút <strong>Soi</strong> <span class="inline-flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-500 w-6 h-6 rounded-full text-xs mx-1"><i class="fa-solid fa-eye"></i></span> để hiện ảnh mờ bên phải chồng lên, giúp chỉnh hình bên phải cân đối và khớp 100% với bên trái.</p>
-                    </div>
-                </div>
-
-                <div class="flex gap-3">
-                    <div class="font-bold text-pink-500 text-lg shrink-0">5.</div>
-                    <div>
-                        <p>Thêm Emoji <span class="inline-flex items-center justify-center bg-yellow-400 text-white w-6 h-6 rounded-full text-xs mx-1 shadow-sm"><i class="fa-solid fa-icons"></i></span> để che những phần cần che.</p>
-                    </div>
-                </div>
-
-                <div class="flex gap-3">
-                    <div class="font-bold text-pink-500 text-lg shrink-0">6.</div>
-                    <div>
-                        <p>Bấm nút <strong>Tải về</strong> <span class="inline-flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white w-6 h-6 rounded-full text-xs mx-1 shadow-sm"><i class="fa-solid fa-download"></i></span>:</p>
-                        <ul class="list-disc pl-4 mt-1 space-y-1 text-gray-600">
-                            <li>Có thể sửa chữ <strong>Before - After</strong> theo ý muốn riêng.</li>
-                            <li>Có thể đặt tên file ảnh rồi tải về máy.</li>
-                        </ul>
-                    </div>
-                </div>
-
+                <div class="flex gap-3"><div class="font-bold text-pink-500 text-lg shrink-0">1.</div><div><p>Tải ảnh lên bằng nút <span class="inline-flex items-center justify-center bg-gradient-to-r from-pink-500 to-rose-500 text-white w-6 h-6 rounded-full text-[10px] mx-1 shadow-sm"><i class="fa-solid fa-cloud-arrow-up"></i></span> (Trái/Phải).</p></div></div>
+                <div class="flex gap-3"><div class="font-bold text-pink-500 text-lg shrink-0">2.</div><div><p class="mb-1">Chọn tỷ lệ khung hình: <strong>1:1</strong>, <strong>4:5</strong>, <strong>9:16</strong>.</p><p class="text-gray-500 text-xs bg-gray-50 p-2 rounded border border-gray-100"><i class="fa-solid fa-circle-info text-blue-400"></i> Lưu ý: Muốn đổi kích thước khung tự do, bấm nút <strong>Mở Khóa</strong> <span class="inline-flex items-center justify-center bg-white border border-emerald-200 text-emerald-600 w-5 h-5 rounded-full text-[10px] mx-1 shadow-sm"><i class="fa-solid fa-lock-open"></i></span>.</p></div></div>
+                <div class="flex gap-3"><div class="font-bold text-pink-500 text-lg shrink-0">3.</div><div><p class="font-bold text-gray-800">Chỉnh sửa ảnh:</p><div class="hidden md:block"><ul class="list-disc pl-4 mt-1 space-y-1 text-gray-600"><li><strong>Zoom:</strong> Phím <kbd class="bg-gray-100 border px-1 rounded font-bold">A</kbd> & <kbd class="bg-gray-100 border px-1 rounded font-bold">S</kbd> hoặc lăn chuột.</li><li><strong>Xoay:</strong> Phím <kbd class="bg-gray-100 border px-1 rounded font-bold">Q</kbd> & <kbd class="bg-gray-100 border px-1 rounded font-bold">W</kbd>.</li><li><strong>Di chuyển:</strong> Kéo chuột.</li></ul></div><div class="block md:hidden"><ul class="list-disc pl-4 mt-1 space-y-1 text-gray-600"><li><strong>Zoom:</strong> Bóp 2 ngón tay trên hình.</li><li><strong>Xoay:</strong> Kéo thanh trượt Xoay <i class="fa-solid fa-rotate text-xs"></i>.</li><li><strong>Di chuyển:</strong> Chạm và kéo 1 ngón.</li></ul></div></div></div>
+                <div class="flex gap-3"><div class="font-bold text-pink-500 text-lg shrink-0">4.</div><div><p>Bấm nút <strong>Soi</strong> <span class="inline-flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-500 w-6 h-6 rounded-full text-xs mx-1"><i class="fa-solid fa-eye"></i></span> để hiện ảnh mờ chồng lên.</p></div></div>
+                <div class="flex gap-3"><div class="font-bold text-pink-500 text-lg shrink-0">5.</div><div><p>Bật <strong>Lưới</strong> <span class="inline-flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-500 w-6 h-6 rounded-full text-xs mx-1"><i class="fa-solid fa-border-all"></i></span> và đổi màu Lưới (Sáng/Tối) để căn chỉnh dễ hơn.</p></div></div>
             </div>
-
-            <div class="p-4 border-t border-gray-100 bg-gray-50 text-center">
-                <button onclick="toggleHelpModal()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-2 rounded-full font-bold shadow-lg shadow-emerald-100 transition transform hover:-translate-y-0.5">Đã Hiểu</button>
-            </div>
+            <div class="p-4 border-t border-gray-100 bg-gray-50 text-center"><button onclick="toggleHelpModal()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-2 rounded-full font-bold shadow-lg shadow-emerald-100 transition transform hover:-translate-y-0.5">Đã Hiểu</button></div>
         </div>
-    </div> 
+    </div>
 
     <div id="saveModal" class="fixed inset-0 bg-gray-900/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-white/50"><h3 class="text-gray-800 font-bold text-lg mb-4 flex items-center gap-2"><i class="fa-solid fa-floppy-disk text-purple-500"></i> Lưu Dự Án</h3><input type="text" id="saveFileNameInput" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 mb-6 focus:border-purple-500 focus:outline-none" placeholder="DuAn_CoThu..."><div class="flex justify-end gap-3"><button onclick="closeSaveModal()" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition font-medium">Hủy</button><button onclick="confirmSaveProject()" class="px-6 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition font-bold shadow-lg shadow-purple-200 flex items-center gap-2">Lưu File</button></div></div></div>
     <div id="resetModal" class="fixed inset-0 bg-gray-900/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 border border-white/50 text-center"><h3 class="text-gray-800 font-bold text-lg mb-2">Làm Mới Tất Cả?</h3><div class="flex justify-center gap-3"><button onclick="closeResetModal()" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200">Không</button><button onclick="confirmResetData()" class="px-6 py-2 rounded-lg bg-rose-500 text-white hover:bg-rose-600 shadow-lg">Đồng Ý</button></div></div></div>
-    
     <div id="previewModal" class="fixed inset-0 bg-white/95 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full h-[90vh] flex flex-col border border-gray-100 relative"><div class="p-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0 rounded-t-2xl z-10"><h3 class="text-gray-800 font-bold text-lg flex items-center gap-2">Xem Trước</h3><button onclick="closePreview()" class="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full"><i class="fa-solid fa-xmark text-xl"></i></button></div><div class="flex-1 min-h-0 bg-gray-50 flex items-center justify-center p-6 overflow-hidden"><img id="previewImage" src="" alt="Preview" class="max-w-full max-h-full shadow-2xl rounded-lg object-contain border-4 border-white"></div><div class="p-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 rounded-b-2xl z-10"><div class="flex items-center gap-5 flex-wrap"><label class="flex items-center gap-2 cursor-pointer text-gray-600"><input type="checkbox" id="exportAxisCheck" class="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"> <span class="text-sm font-medium">Trục</span></label><div class="flex items-center gap-2"><input type="text" id="label1Input" value="BEFORE" class="bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs text-gray-700 w-20 text-center"><input type="text" id="label2Input" value="AFTER" class="bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs text-gray-700 w-20 text-center"></div></div><div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-end items-center"><input type="text" id="downloadFileName" class="w-full sm:w-48 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Tên file..."><div class="flex gap-3 w-full sm:w-auto"><button onclick="closePreview()" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Quay lại</button><button onclick="confirmDownload()" class="px-6 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg flex items-center gap-2 whitespace-nowrap">Tải Về</button></div></div></div></div></div>
     
     <div id="emojiPicker" class="hidden fixed z-[100] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-80"><div class="grid grid-cols-6 gap-1 max-h-72 overflow-y-auto emoji-grid p-1"><button onclick="addEmoji('➡️')" class="text-2xl hover:bg-gray-100 p-2 rounded transition">➡️</button><button onclick="addEmoji('⬅️')" class="text-2xl hover:bg-gray-100 p-2 rounded transition">⬅️</button><button onclick="addEmoji('⬆️')" class="text-2xl hover:bg-gray-100 p-2 rounded transition">⬆️</button><button onclick="addEmoji('⬇️')" class="text-2xl hover:bg-gray-100 p-2 rounded transition">⬇️</button><button onclick="addEmoji('✅')" class="text-2xl hover:bg-green-100 p-2 rounded transition">✅</button><button onclick="addEmoji('❌')" class="text-2xl hover:bg-red-100 p-2 rounded transition">❌</button><button onclick="addEmoji('🧘‍♀️')" class="text-2xl hover:bg-pink-100 p-2 rounded transition" title="Thiền nữ">🧘‍♀️</button><button onclick="addEmoji('🧘‍♂️')" class="text-2xl hover:bg-blue-100 p-2 rounded transition" title="Thiền nam">🧘‍♂️</button><button onclick="addEmoji('🤸‍♀️')" class="text-2xl hover:bg-orange-100 p-2 rounded transition" title="Nhào lộn">🤸‍♀️</button><button onclick="addEmoji('🧎‍♀️')" class="text-2xl hover:bg-purple-100 p-2 rounded transition" title="Quỳ gối">🧎‍♀️</button><button onclick="addEmoji('🙆‍♀️')" class="text-2xl hover:bg-yellow-100 p-2 rounded transition" title="Giãn cơ tay">🙆‍♀️</button><button onclick="addEmoji('💪')" class="text-2xl hover:bg-gray-100 p-2 rounded transition">💪</button><button onclick="addEmoji('❤️')" class="text-2xl hover:bg-red-100 p-2 rounded transition">❤️</button><button onclick="addEmoji('🧡')" class="text-2xl hover:bg-orange-100 p-2 rounded transition">🧡</button><button onclick="addEmoji('💛')" class="text-2xl hover:bg-yellow-100 p-2 rounded transition">💛</button><button onclick="addEmoji('💚')" class="text-2xl hover:bg-green-100 p-2 rounded transition">💚</button><button onclick="addEmoji('💙')" class="text-2xl hover:bg-blue-100 p-2 rounded transition">💙</button><button onclick="addEmoji('💜')" class="text-2xl hover:bg-purple-100 p-2 rounded transition">💜</button><button onclick="addEmoji('💖')" class="text-2xl hover:bg-pink-100 p-2 rounded transition">💖</button><button onclick="addEmoji('💗')" class="text-2xl hover:bg-pink-100 p-2 rounded transition">💗</button><button onclick="addEmoji('💞')" class="text-2xl hover:bg-pink-100 p-2 rounded transition">💞</button><button onclick="addEmoji('🥰')" class="text-2xl hover:bg-pink-100 p-2 rounded transition">🥰</button><button onclick="addEmoji('😍')" class="text-2xl hover:bg-red-100 p-2 rounded transition">😍</button><button onclick="addEmoji('😘')" class="text-2xl hover:bg-red-100 p-2 rounded transition">😘</button><button onclick="addEmoji('🌸')" class="text-2xl hover:bg-pink-100 p-2 rounded transition">🌸</button><button onclick="addEmoji('🔥')" class="text-2xl hover:bg-orange-100 p-2 rounded transition">🔥</button><button onclick="addEmoji('✨')" class="text-2xl hover:bg-yellow-100 p-2 rounded transition">✨</button><button onclick="addEmoji('📏')" class="text-2xl hover:bg-gray-100 p-2 rounded transition">📏</button></div></div>
