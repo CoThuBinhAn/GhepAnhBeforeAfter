@@ -110,8 +110,27 @@ function restoreProjectFromData(data) {
 function loadFromLocalStorage() { try { const savedState = localStorage.getItem(LS_KEY_STATE); const savedImages = localStorage.getItem(LS_KEY_IMAGES); if (savedState || savedImages) { const data = { state: savedState ? JSON.parse(savedState) : null, images: savedImages ? JSON.parse(savedImages) : null }; restoreProjectFromData(data); } } catch (e) {} }
 
 function saveHistory() {
-    const state = { frameWidth, frameHeight, frameY, isFrameLocked, edit1: { crop: {...edit1.crop}, state: {...edit1.state}, stickers: edit1.stickers.map(s => ({...s})) }, edit2: { crop: {...edit2.crop}, state: {...edit2.state}, stickers: edit2.stickers.map(s => ({...s})) } };
-    historyStack.push(state); if (historyStack.length > MAX_HISTORY) historyStack.shift(); redoStack.length = 0; debouncedSave();
+    const state = { 
+        frameWidth, frameHeight, frameY, isFrameLocked, 
+        edit1: { 
+            crop: {...edit1.crop}, 
+            state: {...edit1.state}, 
+            stickers: edit1.stickers.map(s => ({...s})),
+            isLoaded: edit1.isLoaded,
+            imgSrc: edit1.isLoaded ? edit1.img.src : null
+        }, 
+        edit2: { 
+            crop: {...edit2.crop}, 
+            state: {...edit2.state}, 
+            stickers: edit2.stickers.map(s => ({...s})),
+            isLoaded: edit2.isLoaded,
+            imgSrc: edit2.isLoaded ? edit2.img.src : null
+        } 
+    };
+    historyStack.push(state); 
+    if (historyStack.length > MAX_HISTORY) historyStack.shift(); 
+    redoStack.length = 0; 
+    debouncedSave();
 }
 function undo() { if (historyStack.length <= 1) return; redoStack.push(historyStack.pop()); restoreState(historyStack[historyStack.length - 1]); debouncedSave(); }
 function redo() { if (redoStack.length === 0) return; const next = redoStack.pop(); historyStack.push(next); restoreState(next); debouncedSave(); }
@@ -119,8 +138,25 @@ function redo() { if (redoStack.length === 0) return; const next = redoStack.pop
 function restoreState(state) {
     frameWidth = state.frameWidth; frameHeight = state.frameHeight; frameY = state.frameY; isFrameLocked = state.isFrameLocked;
     updateLockUI();
-    edit1.crop = {...state.edit1.crop}; edit1.state = {...state.edit1.state}; edit1.stickers = state.edit1.stickers.map(s => ({...s})); edit1.interaction.stickerIndex = -1;
-    edit2.crop = {...state.edit2.crop}; edit2.state = {...state.edit2.state}; edit2.stickers = state.edit2.stickers.map(s => ({...s})); edit2.interaction.stickerIndex = -1;
+
+    // Khôi phục Edit 1
+    if (state.edit1.imgSrc !== edit1.img.src) edit1.img.src = state.edit1.imgSrc || '';
+    edit1.crop = {...state.edit1.crop}; 
+    edit1.state = {...state.edit1.state}; 
+    edit1.stickers = state.edit1.stickers.map(s => ({...s})); 
+    edit1.interaction.stickerIndex = -1;
+    edit1.isLoaded = state.edit1.isLoaded;
+    edit1.placeholder.style.display = edit1.isLoaded ? 'none' : 'flex';
+
+    // Khôi phục Edit 2
+    if (state.edit2.imgSrc !== edit2.img.src) edit2.img.src = state.edit2.imgSrc || '';
+    edit2.crop = {...state.edit2.crop}; 
+    edit2.state = {...state.edit2.state}; 
+    edit2.stickers = state.edit2.stickers.map(s => ({...s})); 
+    edit2.interaction.stickerIndex = -1;
+    edit2.isLoaded = state.edit2.isLoaded;
+    edit2.placeholder.style.display = edit2.isLoaded ? 'none' : 'flex';
+
     edit1.updateControls(); edit2.updateControls(); edit1.draw(); edit2.draw();
 }
 
@@ -166,6 +202,12 @@ class Editor {
         this.initEvents(uploadId);
     }
 
+    setActive() {
+        activeEditor = this;
+        document.querySelectorAll('.active-editor-wrapper').forEach(el => el.classList.remove('active-editor-wrapper'));
+        this.wrapper.classList.add('active-editor-wrapper');
+    }
+
     fitToScreen() {
         if (!this.isLoaded) return;
         this.state.angle = 0;
@@ -183,9 +225,22 @@ class Editor {
         this.stickers.push({ text: emoji, x: 0, y: 0, scale: size < 0.1 ? 0.1 : size, angle: 0 });
         this.interaction.stickerIndex = this.stickers.length - 1; saveHistory(); this.draw();
     }
-    deleteSelectedSticker() { if (this.interaction.stickerIndex !== -1) { this.stickers.splice(this.interaction.stickerIndex, 1); this.interaction.stickerIndex = -1; saveHistory(); this.draw(); } }
-    pan(dx, dy) { if (!this.isLoaded) return; this.state.x += dx; this.state.y += dy; saveHistory(); this.draw(); }
-    setActive() { if (activeEditor && activeEditor !== this) activeEditor.wrapper.classList.remove('active-editor-wrapper'); activeEditor = this; this.wrapper.classList.add('active-editor-wrapper'); }
+
+    deleteItem() {
+        if (this.interaction.stickerIndex !== -1) { 
+            this.stickers.splice(this.interaction.stickerIndex, 1); 
+            this.interaction.stickerIndex = -1; 
+            saveHistory(); 
+            this.draw(); 
+        } 
+        else if (this.isLoaded) {
+            this.isLoaded = false; 
+            this.placeholder.style.display = 'flex'; 
+            saveHistory(); 
+            this.draw();
+            showToast("Đã xóa ảnh. Bấm Ctrl+Z để hoàn tác.");
+        }
+    }
 
     getCanvasCoords(evt) {
         const rect = this.canvas.getBoundingClientRect();
@@ -259,31 +314,64 @@ class Editor {
         return { type: 'none' };
     }
 
+    loadFile(file) {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return showToast("Vui lòng chỉ chọn file ảnh!");
+
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const i = new Image();
+            i.onload = () => {
+                const max = 1920; 
+                let w = i.width, h = i.height; 
+                if (w > max || h > max) { 
+                    if (w > h) { h *= max / w; w = max; } 
+                    else { w *= max / h; h = max; } 
+                }
+                const c = document.createElement('canvas'); 
+                c.width = w; c.height = h; 
+                c.getContext('2d').drawImage(i, 0, 0, w, h);
+                
+                this.img.src = c.toDataURL('image/jpeg', 0.8);
+                this.img.onload = () => { 
+                    this.isLoaded = true; 
+                    this.crop = {t:0, b:0, l:0, r:0}; 
+                    this.placeholder.style.display = 'none'; 
+                    this.fitToScreen(); 
+                    this.setActive(); 
+                    saveHistory(); 
+                    saveImagesToLocalStorage();
+                    isFrameLocked = true;
+                    updateLockUI();
+                };
+            }; 
+            i.src = ev.target.result;
+        }; 
+        r.readAsDataURL(file);
+    }
+
     initEvents(uId) {
         document.getElementById(uId).addEventListener('change', (e) => {
-            const f = e.target.files[0]; if(!f) return;
-            const r = new FileReader();
-            r.onload = (ev) => {
-                const i = new Image();
-                i.onload = () => {
-                    const max = 1920; let w=i.width, h=i.height; if(w>max||h>max) { if(w>h){h*=max/w;w=max}else{w*=max/h;h=max} }
-                    const c = document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(i,0,0,w,h);
-                    this.img.src = c.toDataURL('image/jpeg', 0.8);
-                    this.img.onload = () => { 
-                        this.isLoaded=true; 
-                        this.crop={t:0,b:0,l:0,r:0}; 
-                        this.placeholder.style.display='none'; 
-                        this.fitToScreen(); 
-                        this.setActive(); 
-                        saveHistory(); 
-                        saveImagesToLocalStorage();
-                        isFrameLocked = true;
-                        updateLockUI();
-                    }
-                }; i.src = ev.target.result;
-            }; r.readAsDataURL(f);
+            this.loadFile(e.target.files[0]);
+            e.target.value = ''; 
         });
-        
+
+        this.wrapper.addEventListener('dragover', (e) => {
+            e.preventDefault(); 
+            this.wrapper.classList.add('bg-pink-50'); 
+        });
+        this.wrapper.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            this.wrapper.classList.remove('bg-pink-50');
+        });
+        this.wrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.wrapper.classList.remove('bg-pink-50');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                this.loadFile(e.dataTransfer.files[0]);
+            }
+        });
+
         const sync = (val, type) => {
             let n = parseFloat(val); 
             if (type === 'rotate') { if(isNaN(n)) n=0; this.state.angle = n; }
@@ -297,6 +385,9 @@ class Editor {
         if(this.zoomInput) { this.zoomInput.addEventListener('input', (e)=>sync(e.target.value, 'zoom')); this.zoomInput.addEventListener('change', ()=>saveHistory()); }
 
         const start = (e) => {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                document.activeElement.blur();
+            }
             this.setActive(); 
             if (e.touches && e.touches.length === 2) {
                 e.preventDefault();
@@ -404,7 +495,7 @@ class Editor {
         if(this.isLoaded) {
             this.ctx.save(); this.ctx.translate(this.state.x, this.state.y); this.ctx.rotate(this.state.angle*Math.PI/180); this.ctx.scale(this.state.scale, this.state.scale);
             const w=this.img.width, h=this.img.height, c=this.crop;
-            this.ctx.drawImage(this.img, c.l, c.t, w-c.l-c.r, h-c.t-c.b, -w/2+c.l, -h/2+c.t, w-c.l-c.r, h-c.t-c.b);
+            this.ctx.drawImage(this.img, c.l, c.t, w-c.l-c.r, h-c.t-c.b, -w/2+c.l, -h/2+c.t, w-c.l-c.r, h-c.t-c.b, -w/2+c.l, -h/2+c.t, w-c.l-c.r, h-c.t-c.b);
             this.stickers.forEach(s => { this.ctx.save(); this.ctx.translate(s.x,s.y); this.ctx.font=`${100*s.scale}px sans-serif`; this.ctx.textAlign='center'; this.ctx.textBaseline='middle'; this.ctx.fillText(s.text,0,0); this.ctx.restore(); });
             this.ctx.restore();
             if(!isExporting) { this.drawImageHandles(); this.drawCropHandles(); }
@@ -421,15 +512,11 @@ class Editor {
         else if(includeCenterAxisInExport) this.drawCenterAxis();
     }
 
-    // --- HÀM VẼ LƯỚI CHI TIẾT (Đã khôi phục) ---
     drawGrid() { 
         let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
         this.ctx.save(); this.ctx.beginPath();
         this.ctx.rect(activeX, frameY, frameWidth, frameHeight); this.ctx.clip(); this.ctx.translate(activeX, frameY);
-
-        const soOChia = 20; // SỐ Ô CHIA NHỎ (Chỉnh ở đây)
-
-        // 1. Lưới phụ (Mờ)
+        const soOChia = 20; 
         this.ctx.beginPath();
         this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.15)";
         this.ctx.lineWidth = 0.5;
@@ -439,8 +526,6 @@ class Editor {
             this.ctx.moveTo(0, subStepY * i); this.ctx.lineTo(frameWidth, subStepY * i);
         }
         this.ctx.stroke();
-
-        // 2. Lưới chính (Đậm)
         this.ctx.beginPath();
         this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)";
         this.ctx.lineWidth = 1.5;
@@ -483,7 +568,6 @@ const edit2 = new Editor('canvas2', 'wrapper2', 'upload2', 'rotateRange2', 'rota
 
 const modal = document.getElementById('previewModal');
 const previewImg = document.getElementById('previewImage');
-const exportGridCheck = document.getElementById('exportGridCheck'); 
 const exportAxisCheck = document.getElementById('exportAxisCheck');
 let currentDataUrl = '';
 
@@ -529,51 +613,207 @@ function toggleCenterAxis() {
 }
 
 function exportImage() {
-    if(!edit1.isLoaded && !edit2.isLoaded) return alert("Chưa có ảnh nào!");
-    includeCenterAxisInExport = false; exportAxisCheck.checked = false;
-    const nameInput = document.getElementById('downloadFileName');
-    if (!nameInput.value.trim()) { const t = new Date().toISOString().slice(0,19).replace(/[-T:]/g,""); nameInput.value = `Compare_${t}`; }
-    updateResultImage(); modal.classList.remove('hidden');
-}
-exportAxisCheck.addEventListener('change', (e) => { includeCenterAxisInExport = e.target.checked; updateResultImage(); });
-document.getElementById('label1Input').addEventListener('input', updateResultImage);
-document.getElementById('label2Input').addEventListener('input', updateResultImage);
+    if (!edit1.isLoaded && !edit2.isLoaded) return showToast("Chưa có ảnh nào để tải!");
 
-function updateResultImage() {
-    const fontSize = Math.max(24, frameWidth * 0.08); const labelH = fontSize * 1.8; 
-    const c = document.createElement('canvas'); c.width = frameWidth * 2; c.height = frameHeight + labelH; 
-    const ctx = c.getContext('2d'); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
-    isExporting = true; edit1.draw(); edit2.draw();
+    // [MỚI] Lấy nội dung text từ 2 ô nhập liệu trên giao diện
+    const txt1 = document.getElementById('labelInput1').value.trim() || "BEFORE";
+    const txt2 = document.getElementById('labelInput2').value.trim() || "AFTER";
+
+    const timestamp = new Date().toISOString().slice(0,19).replace(/[-T:]/g,"");
+    const fileName = `Compare_${timestamp}.jpg`;
+
+    const fontSize = Math.max(24, frameWidth * 0.08); 
+    const labelH = fontSize * 1.8; 
+    
+    const c = document.createElement('canvas');
+    c.width = frameWidth * 2;
+    c.height = frameHeight + labelH; 
+    
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    isExporting = true;
+    edit1.draw(); edit2.draw();
+
     ctx.drawImage(edit1.canvas, CANVAS_WIDTH - frameWidth, frameY, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
     ctx.drawImage(edit2.canvas, 0, frameY, frameWidth, frameHeight, frameWidth, 0, frameWidth, frameHeight);
-    ctx.font = `bold ${fontSize}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#374151"; 
+
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#374151";
+
     const ly = frameHeight + (labelH / 2);
-    ctx.fillText(document.getElementById('label1Input').value || "BEFORE", frameWidth / 2, ly);
-    ctx.fillText(document.getElementById('label2Input').value || "AFTER", frameWidth + (frameWidth / 2), ly);
-    ctx.beginPath(); ctx.moveTo(frameWidth, frameHeight + 5); ctx.lineTo(frameWidth, c.height - 5); ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 1; ctx.stroke();
-    isExporting = false; edit1.draw(); edit2.draw();
-    currentDataUrl = c.toDataURL('image/jpeg', 0.95); previewImg.src = currentDataUrl;
-}
-function closePreview() { modal.classList.add('hidden'); previewImg.src = ''; }
-function confirmDownload() {
-    let fn = document.getElementById('downloadFileName').value.trim(); if (!fn) fn = `Compare_${Date.now()}`; if (!fn.toLowerCase().endsWith('.jpg')) fn += '.jpg';
-    const l = document.createElement('a'); l.download = fn; l.href = currentDataUrl; document.body.appendChild(l); l.click(); document.body.removeChild(l);
+    ctx.fillText(txt1, frameWidth / 2, ly);
+    ctx.fillText(txt2, frameWidth + (frameWidth / 2), ly);
+
+    ctx.beginPath();
+    ctx.moveTo(frameWidth, frameHeight + 5);
+    ctx.lineTo(frameWidth, c.height - 5);
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    isExporting = false;
+    edit1.draw(); edit2.draw();
+
+    const dataUrl = c.toDataURL('image/jpeg', 0.95);
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast("Đã lưu ảnh thành công!");
 }
 
-window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey)) {
-        if (e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); redo(); return; }
-        if (e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+window.addEventListener('paste', (e) => {
+    if (!activeEditor) { activeEditor = edit1; activeEditor.setActive(); }
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    let blob = null;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') === 0) { blob = items[i].getAsFile(); break; }
     }
-    if (!activeEditor || e.target.tagName === 'INPUT') return; 
-    if (e.key === 'Delete' || e.key === 'Backspace') { activeEditor.deleteSelectedSticker(); e.preventDefault(); return; }
-    if (e.key.toLowerCase() === 'a') { let newScale = activeEditor.state.scale - 0.01; if (newScale < 0.1) newScale = 0.1; activeEditor.state.scale = newScale; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
-    if (e.key.toLowerCase() === 's') { let newScale = activeEditor.state.scale + 0.01; if (newScale > 4) newScale = 4; activeEditor.state.scale = newScale; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
-    if (e.key.toLowerCase() === 'q') { activeEditor.state.angle -= 0.1; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
-    if (e.key.toLowerCase() === 'w') { activeEditor.state.angle += 0.1; activeEditor.updateControls(); activeEditor.draw(); saveHistory(); }
-    let s = e.shiftKey ? 10 : 1; let h = false;
-    switch(e.key) { case 'ArrowUp': activeEditor.pan(0, -s); h = true; break; case 'ArrowDown': activeEditor.pan(0, s); h = true; break; case 'ArrowLeft': activeEditor.pan(-s, 0); h = true; break; case 'ArrowRight': activeEditor.pan(s, 0); h = true; break; }
-    if (h) e.preventDefault();
+    if (blob !== null) {
+        activeEditor.loadFile(blob);
+        showToast(`Đã dán ảnh vào khung ${activeEditor.side === 'left' ? 'TRÁI' : 'PHẢI'}`);
+    }
+});
+
+// --- XỬ LÝ PHÍM TẮT CHUẨN (ĐÃ CẬP NHẬT SHIFT ĐỂ TĂNG TỐC ĐỘ) ---
+window.addEventListener('keydown', (e) => {
+    // 1. Chặn phím tắt khi gõ chữ (Trừ phím Range slider)
+    if (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) return;
+
+    // 2. Undo/Redo (Ctrl+Z)
+    if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            e.shiftKey ? redo() : undo();
+            return;
+        }
+    }
+
+    if (!activeEditor) return;
+
+    // 3. Xóa (Delete)
+    if (e.key === 'Delete' || e.key === 'Backspace') { 
+        activeEditor.deleteItem(); 
+        e.preventDefault(); 
+        return; 
+    }
+
+    // 4. Zoom A/S (Shift để nhanh hơn)
+    if (e.key.toLowerCase() === 'a') { 
+        // [MỚI] Nếu giữ Shift thì bước nhảy là 0.05, không thì 0.01
+        let step = e.shiftKey ? 0.05 : 0.01;
+        
+        let newScale = activeEditor.state.scale - step; 
+        if (newScale < 0.1) newScale = 0.1; 
+        activeEditor.state.scale = newScale; 
+        
+        saveHistory(); 
+        activeEditor.updateControls(); activeEditor.draw(); debouncedSave(); 
+    }
+    if (e.key.toLowerCase() === 's') { 
+        // [MỚI] Nếu giữ Shift thì bước nhảy là 0.05, không thì 0.01
+        let step = e.shiftKey ? 0.05 : 0.01;
+
+        let newScale = activeEditor.state.scale + step; 
+        if (newScale > 4) newScale = 4; 
+        activeEditor.state.scale = newScale; 
+        
+        saveHistory(); 
+        activeEditor.updateControls(); activeEditor.draw(); debouncedSave(); 
+    }
+    
+    // 5. Xoay Q/W (Shift để nhanh hơn)
+    if (e.key.toLowerCase() === 'q') { 
+        // [MỚI] Nếu giữ Shift thì xoay 5 độ, không thì 1 độ
+        let step = e.shiftKey ? 5 : 1;
+        
+        activeEditor.state.angle -= step; 
+        saveHistory(); 
+        activeEditor.updateControls(); activeEditor.draw(); debouncedSave(); 
+    }
+    if (e.key.toLowerCase() === 'w') { 
+        // [MỚI] Nếu giữ Shift thì xoay 5 độ, không thì 1 độ
+        let step = e.shiftKey ? 5 : 1;
+
+        activeEditor.state.angle += step; 
+        saveHistory(); 
+        activeEditor.updateControls(); activeEditor.draw(); debouncedSave(); 
+    }
+
+    // 6. Pan (Mũi tên)
+    let step = e.shiftKey ? 10 : 1; 
+    let moved = false;
+    switch(e.key) { 
+        case 'ArrowUp': activeEditor.state.y -= step; moved = true; break; 
+        case 'ArrowDown': activeEditor.state.y += step; moved = true; break; 
+        case 'ArrowLeft': activeEditor.state.x -= step; moved = true; break; 
+        case 'ArrowRight': activeEditor.state.x += step; moved = true; break; 
+    }
+    
+    if (moved) { 
+        e.preventDefault(); 
+        saveHistory(); 
+        activeEditor.draw(); 
+        debouncedSave(); 
+    }
 });
 
 edit1.draw(); edit2.draw(); loadFromLocalStorage();
+
+const advancedMenu = document.getElementById('advancedMenu');
+const advancedBtn = document.getElementById('advancedBtn');
+
+window.toggleAdvancedMenu = function() {
+    if (advancedMenu.classList.contains('hidden')) {
+        // 1. Tính toán vị trí của nút bấm
+        const rect = advancedBtn.getBoundingClientRect();
+        
+        // 2. Đặt menu nằm ngay bên dưới nút bấm
+        // (rect.bottom là mép dưới của nút, + 5px cho thoáng)
+        advancedMenu.style.top = (rect.bottom + 5) + 'px';
+        
+        // 3. Căn giữa menu so với nút bấm
+        // (Lấy vị trí trái của nút + nửa chiều rộng nút - nửa chiều rộng menu)
+        // Chúng ta tạm hiện menu ra để trình duyệt đo được chiều rộng (offsetWidth)
+        advancedMenu.classList.remove('hidden'); 
+        const menuWidth = advancedMenu.offsetWidth;
+        let leftPos = rect.left + (rect.width / 2) - (menuWidth / 2);
+
+        // Chặn không cho menu tràn ra mép màn hình điện thoại
+        if (leftPos < 10) leftPos = 10;
+        if (leftPos + menuWidth > window.innerWidth - 10) leftPos = window.innerWidth - menuWidth - 10;
+
+        advancedMenu.style.left = leftPos + 'px';
+
+        // 4. Hiệu ứng nút
+        advancedBtn.classList.add('bg-gray-200'); 
+    } else {
+        advancedMenu.classList.add('hidden');
+        advancedBtn.classList.remove('bg-gray-200');
+    }
+}
+
+// Tự động đóng menu khi bấm ra ngoài hoặc cuộn trang
+document.addEventListener('click', (e) => {
+    if (advancedMenu && !advancedMenu.classList.contains('hidden')) {
+        if (!advancedMenu.contains(e.target) && !advancedBtn.contains(e.target)) {
+            advancedMenu.classList.add('hidden');
+            if (advancedBtn) advancedBtn.classList.remove('bg-gray-200');
+        }
+    }
+});
+
+// Đóng menu khi cuộn chuột (để menu không bị trôi lơ lửng)
+window.addEventListener('scroll', () => {
+    if (advancedMenu && !advancedMenu.classList.contains('hidden')) {
+        advancedMenu.classList.add('hidden');
+        if (advancedBtn) advancedBtn.classList.remove('bg-gray-200');
+    }
+}, true);
