@@ -616,8 +616,8 @@ function exportImage() {
     if (!edit1.isLoaded && !edit2.isLoaded) return showToast("Chưa có ảnh nào để tải!");
 
     // [MỚI] Lấy nội dung text từ 2 ô nhập liệu trên giao diện
-    const txt1 = document.getElementById('labelInput1').value.trim() || "BEFORE";
-    const txt2 = document.getElementById('labelInput2').value.trim() || "AFTER";
+    const txt1 = (document.getElementById('labelInput1').value.trim() || "BEFORE").toUpperCase();
+    const txt2 = (document.getElementById('labelInput2').value.trim() || "AFTER").toUpperCase();
 
     const timestamp = new Date().toISOString().slice(0,19).replace(/[-T:]/g,"");
     const fileName = `Compare_${timestamp}.jpg`;
