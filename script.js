@@ -514,26 +514,34 @@ class Editor {
 
     drawGrid() { 
         let activeX = (this.side === 'left') ? CANVAS_WIDTH - frameWidth : 0;
-        this.ctx.save(); this.ctx.beginPath();
-        this.ctx.rect(activeX, frameY, frameWidth, frameHeight); this.ctx.clip(); this.ctx.translate(activeX, frameY);
-        const soOChia = 20; 
+        
+        // --- ĐIỀU CHỈNH KHOẢNG CÁCH TẠI ĐÂY ---
+        const linePadding = 15; // Cách mép 10px
+
+        this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.15)";
-        this.ctx.lineWidth = 0.5;
-        const subStepX = frameWidth / soOChia; const subStepY = frameHeight / soOChia;
-        for (let i = 1; i < soOChia; i++) {
-            this.ctx.moveTo(subStepX * i, 0); this.ctx.lineTo(subStepX * i, frameHeight);
-            this.ctx.moveTo(0, subStepY * i); this.ctx.lineTo(frameWidth, subStepY * i);
+
+        // --- LOGIC ĐỔI MÀU THEO NÚT BẤM ---
+        if (gridColor === 'light') {
+             this.ctx.strokeStyle = "#ffffff"; // Màu TRẮNG (cho ảnh tối)
+             this.ctx.shadowColor = "rgba(0,0,0,0.5)"; // Đổ bóng nhẹ để dễ nhìn
+             this.ctx.shadowBlur = 1;
+        } else {
+             this.ctx.strokeStyle = "#000000"; // Màu ĐEN (cho ảnh sáng)
+             this.ctx.shadowColor = "rgba(255,255,255,0.5)";
+             this.ctx.shadowBlur = 1;
         }
-        this.ctx.stroke();
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = (gridColor === 'light') ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)";
-        this.ctx.lineWidth = 1.5;
-        const stepX = frameWidth / 3; const stepY = frameHeight / 3;
-        this.ctx.moveTo(stepX, 0); this.ctx.lineTo(stepX, frameHeight);
-        this.ctx.moveTo(stepX * 2, 0); this.ctx.lineTo(stepX * 2, frameHeight);
-        this.ctx.moveTo(0, stepY); this.ctx.lineTo(frameWidth, stepY);
-        this.ctx.moveTo(0, stepY * 2); this.ctx.lineTo(frameWidth, stepY * 2);
+
+        this.ctx.lineWidth = 2; // Độ dày
+
+        // 1. Vẽ đường kẻ trên
+        this.ctx.moveTo(activeX, frameY + linePadding);
+        this.ctx.lineTo(activeX + frameWidth, frameY + linePadding);
+
+        // 2. Vẽ đường kẻ dưới
+        this.ctx.moveTo(activeX, frameY + frameHeight - linePadding);
+        this.ctx.lineTo(activeX + frameWidth, frameY + frameHeight - linePadding);
+
         this.ctx.stroke();
         this.ctx.restore(); 
     }
@@ -549,8 +557,20 @@ class Editor {
         if (topY > 0) this.ctx.fillRect(0, 0, CANVAS_WIDTH, topY);
         if (bottomY < CANVAS_HEIGHT) this.ctx.fillRect(0, bottomY, CANVAS_WIDTH, CANVAS_HEIGHT - bottomY);
         if (this.side === 'left') { if (activeX > 0) this.ctx.fillRect(0, topY, activeX, frameHeight); } else { const rmx = activeX + frameWidth; if (rmx < CANVAS_WIDTH) this.ctx.fillRect(rmx, topY, CANVAS_WIDTH - rmx, frameHeight); }
-        const INSET = 5; 
-        if (isFrameLocked) { this.ctx.strokeStyle = "#f43f5e"; this.ctx.lineWidth = 2; this.ctx.setLineDash([5, 5]); this.ctx.strokeRect(activeX + INSET, topY + INSET, frameWidth - INSET*2, frameHeight - INSET*2); } 
+        
+        const INSET = 0; // Khoảng cách so với biên
+        if (isFrameLocked) { 
+            this.ctx.strokeStyle = "#db2777"; // Màu hồng (Pink 600)
+            this.ctx.lineWidth = 2;           // Độ dày nét vẽ
+            this.ctx.setLineDash([5, 5]);    // [Độ dài gạch, Độ dài khoảng trắng]
+            
+            this.ctx.strokeRect(
+                activeX + INSET, 
+                topY + INSET, 
+                frameWidth - INSET * 2, 
+                frameHeight - INSET * 2
+            ); 
+        }
         else {
             this.ctx.strokeStyle = "#3b82f6"; this.ctx.lineWidth = 3; this.ctx.setLineDash([5, 5]); this.ctx.strokeRect(activeX + INSET, topY + INSET, frameWidth - INSET*2, frameHeight - INSET*2);
             this.ctx.fillStyle = "#3b82f6"; this.ctx.setLineDash([]); const hs = 8;
